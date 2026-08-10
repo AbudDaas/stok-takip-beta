@@ -801,6 +801,7 @@
         renderCategoryChips(allProducts);
         renderProducts(allProducts, "");
       } catch (e) {
+        console.error("Katalog yüklenemedi:", e);
         contentEl.innerHTML = '<div class="error-state">Katalog yüklenemedi, lütfen daha sonra tekrar dene.</div>';
       }
     }

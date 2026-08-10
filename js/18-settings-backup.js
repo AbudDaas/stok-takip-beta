@@ -499,12 +499,16 @@ export function applyBrandColor(color) {
 
 export function handleLogoUpload(file) {
     if (!file) return;
+    if (!state.storage) {
+      showToast(state.t("photoUploadFailed"), "error");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
         // Logoyu küçük bir kareye sıkıştırıyoruz — hem hızlı yüklensin hem
-        // veritabanı belgesini şişirmesin.
+        // katalog sayfasının yanıtını şişirmesin.
         const size = 160;
         const canvas = document.createElement("canvas");
         canvas.width = size;
@@ -514,15 +518,36 @@ export function handleLogoUpload(file) {
         const w = img.width * scale;
         const h = img.height * scale;
         ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-        state.businessLogo = dataUrl;
-        const preview = document.getElementById("businessLogoPreview");
-        const placeholder = document.getElementById("businessLogoPlaceholder");
-        if (preview) {
-          preview.src = dataUrl;
-          preview.style.display = "block";
-        }
-        if (placeholder) placeholder.style.display = "none";
+
+        canvas.toBlob(
+          (blob) => {
+            // Logoyu da ürün fotoğrafları gibi Firebase Storage'a
+            // yüklüyoruz — Firestore belgesine SADECE küçük bir bağlantı
+            // (URL) kaydediliyor, büyük bir base64 metni DEĞİL. Bu,
+            // katalog sayfasının yanıt boyutunu önemli ölçüde küçültür.
+            const businessId = (state.originalDocRef || state.docRef).id;
+            const ref = state.storage.ref(`business-logos/${businessId}/logo.jpg`);
+            ref
+              .put(blob)
+              .then(() => ref.getDownloadURL())
+              .then((url) => {
+                state.businessLogo = url;
+                const preview = document.getElementById("businessLogoPreview");
+                const placeholder = document.getElementById("businessLogoPlaceholder");
+                if (preview) {
+                  preview.src = url;
+                  preview.style.display = "block";
+                }
+                if (placeholder) placeholder.style.display = "none";
+              })
+              .catch((err) => {
+                console.error("Logo yüklenemedi", err);
+                showToast(state.t("photoUploadFailed"), "error");
+              });
+          },
+          "image/jpeg",
+          0.85
+        );
       };
       img.src = e.target.result;
     };
