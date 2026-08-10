@@ -82,6 +82,9 @@ export function openSupplierModal(supplierId) {
     renderSupplierOrderList(supplierId);
     document.getElementById("supplierProductSearch").value = "";
     renderSupplierProductPicker();
+    populateReturnProductSelect(supplierId);
+    populateTemplateBuilderSelect(supplierId);
+    renderSupplierTemplates(supplierId);
     document.getElementById("supplierModal").style.display = "flex";
   }
 
@@ -289,6 +292,185 @@ export function addSupplierPayment() {
       showToast(state.t("supplierPaymentRecorded"), "success");
     });
   }
+
+export function populateReturnProductSelect(supplierId) {
+    const selectEl = document.getElementById("returnSupplierProductId");
+    if (!selectEl) return;
+    const products = state.products.filter((p) => p.supplierId === supplierId);
+    selectEl.innerHTML =
+      `<option value="">${state.t("selectProduct")}</option>` +
+      products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  }
+
+/**
+ * Bozuk/SKT geçmiş ürünü tedarikçiye iade eder: ürün stoktan düşülür,
+ * tedarikçi borcundan da düşülür (bir "payment" işlemi olarak kaydedilir).
+ */
+export function submitSupplierReturn() {
+    if (!state.activeSupplierId) return;
+    const productId = document.getElementById("returnSupplierProductId").value;
+    const qty = Number(document.getElementById("returnSupplierQty").value);
+    const amount = Number(document.getElementById("returnSupplierAmount").value);
+    const note = document.getElementById("returnSupplierNote").value.trim();
+
+    if (!productId || !qty || qty <= 0 || !amount || amount <= 0) {
+      showToast(state.t("supplierReturnInvalid"), "error");
+      return;
+    }
+
+    const p = state.products.find((x) => x.id === productId);
+    if (!p) return;
+
+    p.qty = Math.max(0, Math.round((p.qty - qty) * 1000) / 1000);
+
+    state.supplierTransactions.push({
+      id: genId(),
+      supplierId: state.activeSupplierId,
+      type: "payment",
+      amount,
+      note: note ? `${state.t("supplierReturnNotePrefix")}: ${p.name} (${qty}) — ${note}` : `${state.t("supplierReturnNotePrefix")}: ${p.name} (${qty})`,
+      timestamp: new Date().toISOString()
+    });
+
+    logAudit("Tedarikçiye iade yapıldı", `${p.name}: ${qty} — ${formatTL(amount)}`);
+    save();
+
+    document.getElementById("returnSupplierProductId").value = "";
+    document.getElementById("returnSupplierQty").value = "";
+    document.getElementById("returnSupplierAmount").value = "";
+    document.getElementById("returnSupplierNote").value = "";
+
+    openSupplierModal(state.activeSupplierId);
+    renderSuppliers();
+    showToast(state.t("supplierReturnSaved"), "success");
+  }
+
+export function populateTemplateBuilderSelect(supplierId) {
+    const selectEl = document.getElementById("templateBuilderProductId");
+    if (!selectEl) return;
+    const products = state.products.filter((p) => p.supplierId === supplierId);
+    selectEl.innerHTML =
+      `<option value="">${state.t("selectProduct")}</option>` +
+      products.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+  }
+
+export function addTemplateBuilderItem() {
+    const productId = document.getElementById("templateBuilderProductId").value;
+    const qty = Number(document.getElementById("templateBuilderQty").value);
+    if (!productId || !qty || qty <= 0) {
+      showToast(state.t("templateItemInvalid"), "error");
+      return;
+    }
+    const p = state.products.find((x) => x.id === productId);
+    if (!p) return;
+
+    if (state.pendingTemplateItems.some((item) => item.productId === productId)) {
+      showToast(state.t("templateItemDuplicate"), "error");
+      return;
+    }
+    state.pendingTemplateItems.push({ productId, productName: p.name, qty });
+    document.getElementById("templateBuilderQty").value = "";
+    renderTemplateBuilderList();
+  }
+
+export function renderTemplateBuilderList() {
+    const listEl = document.getElementById("templateBuilderList");
+    if (!listEl) return;
+    if (!state.pendingTemplateItems.length) {
+      listEl.innerHTML = "";
+      return;
+    }
+    listEl.innerHTML = state.pendingTemplateItems
+      .map(
+        (item, i) => `
+        <div class="extra-barcode-row">
+          <span class="extra-barcode-value">${escapeHtml(item.productName)} — ${item.qty}</span>
+          <button class="template-item-remove-btn" data-index="${i}" aria-label="Sil"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>`
+      )
+      .join("");
+    listEl.querySelectorAll(".template-item-remove-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.pendingTemplateItems.splice(Number(btn.dataset.index), 1);
+        renderTemplateBuilderList();
+      });
+    });
+  }
+
+export function saveOrderTemplate() {
+    if (!state.activeSupplierId) return;
+    const name = document.getElementById("templateNameInput").value.trim();
+    if (!name || !state.pendingTemplateItems.length) {
+      showToast(state.t("templateSaveInvalid"), "error");
+      return;
+    }
+    state.orderTemplates.push({
+      id: genId(),
+      supplierId: state.activeSupplierId,
+      name,
+      items: state.pendingTemplateItems.map((i) => ({ ...i }))
+    });
+    logAudit("Sipariş şablonu kaydedildi", `${name} (${state.pendingTemplateItems.length} ürün)`);
+    save();
+
+    state.pendingTemplateItems = [];
+    document.getElementById("templateNameInput").value = "";
+    renderTemplateBuilderList();
+    renderSupplierTemplates(state.activeSupplierId);
+    showToast(state.t("templateSaved"), "success");
+  }
+
+export function renderSupplierTemplates(supplierId) {
+    const listEl = document.getElementById("supplierTemplatesList");
+    if (!listEl) return;
+    const templates = state.orderTemplates.filter((t) => t.supplierId === supplierId);
+    if (!templates.length) {
+      listEl.innerHTML = "";
+      return;
+    }
+    listEl.innerHTML = templates
+      .map(
+        (t) => `
+        <div class="reminder-row">
+          <div>
+            <p class="reminder-name">${escapeHtml(t.name)}</p>
+            <p class="reminder-meta">${t.items.length} ${state.t("templateItemCountSuffix")}</p>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm send-template-btn" data-id="${t.id}"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></button>
+            <button class="btn btn-sm btn-danger delete-template-btn" data-id="${t.id}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+          </div>
+        </div>`
+      )
+      .join("");
+
+    listEl.querySelectorAll(".send-template-btn").forEach((btn) => {
+      btn.addEventListener("click", () => sendOrderTemplate(btn.dataset.id));
+    });
+    listEl.querySelectorAll(".delete-template-btn").forEach((btn) => {
+      btn.addEventListener("click", () => deleteOrderTemplate(btn.dataset.id));
+    });
+  }
+
+export function sendOrderTemplate(templateId) {
+    const t = state.orderTemplates.find((x) => x.id === templateId);
+    const s = state.suppliers.find((x) => x.id === state.activeSupplierId);
+    if (!t || !s || !s.phone) {
+      showToast(state.t("supplierNoPhone"), "error");
+      return;
+    }
+    const lines = t.items.map((item) => `- ${item.productName}: ${item.qty}`).join("\n");
+    const message = `${state.t("orderEngineMessageTitle")} (${t.name})\n\n${lines}`;
+    const cleanPhone = s.phone.replace(/[^\d]/g, "");
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+    logAudit("Sipariş şablonu gönderildi", t.name);
+  }
+
+export function deleteOrderTemplate(templateId) {
+  state.orderTemplates = state.orderTemplates.filter((t) => t.id !== templateId);
+  save();
+  renderSupplierTemplates(state.activeSupplierId);
+}
 
 export function deleteSupplier() {
     if (!state.activeSupplierId) return;

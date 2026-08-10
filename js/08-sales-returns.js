@@ -165,12 +165,91 @@ export function topProductRowHtml(item, rank) {
       </div>`;
   }
 
+/**
+ * Gün Sonu Kasa Sayımı (Z-Raporu).
+ * Bugünkü NAKİT satışların toplamını (kasada olması gereken tutarı)
+ * hesaplayıp, kullanıcının gerçekte saydığı tutarla karşılaştırır.
+ */
+function getExpectedCashToday() {
+  return state.sales
+    .filter((s) => isInPeriod(s.timestamp, "today") && s.paymentType === "nakit")
+    .reduce((sum, s) => sum + s.total, 0);
+}
+
+export function submitZReport() {
+  const actualInput = document.getElementById("zReportActual");
+  const actual = Number(actualInput.value);
+  if (!actual && actual !== 0) {
+    showToast(state.t("alertInvalidAmount"), "error");
+    return;
+  }
+  const expected = getExpectedCashToday();
+  const difference = Math.round((actual - expected) * 100) / 100;
+
+  state.zReports.push({
+    id: genId(),
+    expected,
+    actual,
+    difference,
+    createdAt: new Date().toISOString()
+  });
+
+  logAudit("Gün sonu kasa sayımı yapıldı", `Beklenen: ${formatTL(expected)}, Sayılan: ${formatTL(actual)}, Fark: ${formatTL(difference)}`);
+  save();
+  actualInput.value = "";
+  renderZReport();
+  showToast(state.t("zReportSaved"), "success");
+}
+
+export function deleteZReport(id) {
+  state.zReports = state.zReports.filter((z) => z.id !== id);
+  save();
+  renderZReport();
+}
+
+export function renderZReport() {
+  const expectedEl = document.getElementById("zReportExpected");
+  const historyEl = document.getElementById("zReportHistoryList");
+  if (!expectedEl) return;
+
+  expectedEl.textContent = formatTL(getExpectedCashToday());
+
+  const sorted = [...(state.zReports || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
+  if (!sorted.length) {
+    historyEl.innerHTML = "";
+    return;
+  }
+  historyEl.innerHTML = sorted
+    .map((z) => {
+      const dateStr = new Date(z.createdAt).toLocaleString(locale());
+      const diffColor = Math.abs(z.difference) < 0.01 ? "var(--green-text)" : "var(--red-text)";
+      const diffLabel = z.difference > 0 ? "+" + formatTL(z.difference) : formatTL(z.difference);
+      return `
+        <div class="reminder-row">
+          <div>
+            <p class="reminder-name">${dateStr}</p>
+            <p class="reminder-meta">${state.t("zReportExpectedShort")}: ${formatTL(z.expected)} · ${state.t("zReportActualShort")}: ${formatTL(z.actual)}</p>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-weight:700;color:${diffColor};">${diffLabel}</span>
+            <button class="z-report-delete-btn" data-id="${z.id}" aria-label="Sil"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  historyEl.querySelectorAll(".z-report-delete-btn").forEach((btn) => {
+    btn.addEventListener("click", () => deleteZReport(btn.dataset.id));
+  });
+}
+
 export function renderSales() {
     const list = document.getElementById("salesList");
     const empty = document.getElementById("salesEmptyState");
     const topList = document.getElementById("topProductsList");
     const topEmpty = document.getElementById("topProductsEmptyState");
     if (!list) return;
+    renderZReport();
 
     const periodSales = state.sales.filter((s) => isInPeriod(s.timestamp, state.currentSalesPeriod));
     const sorted = [...periodSales].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));

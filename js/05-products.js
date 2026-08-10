@@ -351,6 +351,68 @@ export function saveEdit() {
     updateModalContent(p);
   }
 
+/**
+ * Fiziksel Stok Sayımı — dükkanı gezip her ürünü sayarken kullanılır.
+ * Her ürün için bir giriş kutusu gösterir (mevcut sistem sayısıyla
+ * doldurulmuş), kullanıcı gerçek sayıyı girer/düzeltir. "Uygula"
+ * dendiğinde SADECE farklı olan ürünler güncellenir ve loglanır.
+ */
+export function openPhysicalCountModal() {
+    document.getElementById("physicalCountSearch").value = "";
+    renderPhysicalCountList("");
+    document.getElementById("physicalCountModal").style.display = "flex";
+  }
+
+export function closePhysicalCountModal() {
+    document.getElementById("physicalCountModal").style.display = "none";
+  }
+
+export function renderPhysicalCountList(filter) {
+    const listEl = document.getElementById("physicalCountList");
+    if (!listEl) return;
+    const normalized = (filter || "").toLowerCase().trim();
+    const filtered = normalized ? state.products.filter((p) => p.name.toLowerCase().includes(normalized)) : state.products;
+
+    listEl.innerHTML = filtered
+      .map(
+        (p) => `
+        <div class="reminder-row">
+          <p class="reminder-name">${escapeHtml(p.name)}</p>
+          <input type="number" min="0" step="0.001" class="physical-count-input" data-id="${p.id}" value="${p.qty}" style="width:90px;text-align:right;" />
+        </div>`
+      )
+      .join("");
+  }
+
+export function applyPhysicalCount() {
+    const inputs = document.querySelectorAll(".physical-count-input");
+    let changedCount = 0;
+    const changeDetails = [];
+
+    inputs.forEach((input) => {
+      const p = state.products.find((x) => x.id === input.dataset.id);
+      if (!p) return;
+      const newQty = Number(input.value);
+      if (isNaN(newQty) || newQty === p.qty) return;
+      changeDetails.push(`${p.name}: ${p.qty} → ${newQty}`);
+      p.qty = newQty;
+      updateOutOfStockTracking(p);
+      changedCount++;
+    });
+
+    if (changedCount === 0) {
+      showToast(state.t("physicalCountNoChanges"), "info");
+      closePhysicalCountModal();
+      return;
+    }
+
+    logAudit("Fiziksel stok sayımı uygulandı", `${changedCount} ${state.t("physicalCountChangedSuffix")}: ${changeDetails.slice(0, 5).join("; ")}${changeDetails.length > 5 ? "…" : ""}`);
+    save();
+    renderAll();
+    closePhysicalCountModal();
+    showToast(state.t("physicalCountApplied").replace("{n}", changedCount), "success");
+  }
+
 export function resetAll() {
     state.products.forEach((p) => {
       p.qty = Math.max(p.min, 1);

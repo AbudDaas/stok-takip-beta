@@ -266,6 +266,14 @@
       </div>
 
       <div class="card">
+        <p class="card-title" data-i18n="physicalCountTitle">📦 Fiziksel Stok Sayımı</p>
+        <p class="card-subtitle" data-i18n="physicalCountSubtitle">Dükkanı gezip her ürünü say — sistemdeki sayı ile gerçek sayıyı karşılaştırıp farkları otomatik düzeltir.</p>
+        <button id="openPhysicalCountBtn" class="btn btn-primary btn-block">
+          <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i> <span data-i18n="startCountBtn">Sayıma Başla</span>
+        </button>
+      </div>
+
+      <div class="card">
         <p class="card-title" data-i18n="invoiceScanTitle">Fatura ile stok girişi (toplu)</p>
         <p class="card-subtitle" data-i18n="invoiceScanSubtitle">Tedarikçi faturasının fotoğrafını çek, yapay zeka ürünleri okusun — sistemde varsa stoğa eklesin, yoksa yeni ürün olarak oluştursun.</p>
         <input id="invoicePhotoInput" type="file" accept="image/*" multiple style="display:none;" />
@@ -468,6 +476,19 @@
             <p class="payment-breakdown-value" id="breakdownVeresiye">0,00 ₺</p>
           </div>
         </div>
+      </div>
+
+      <div class="card">
+        <p class="card-title" data-i18n="zReportTitle">🧮 Gün Sonu Kasa Sayımı</p>
+        <p class="card-subtitle" data-i18n="zReportSubtitle">Kasada olması gereken nakit miktarı otomatik hesaplanır — sen gerçekte saydığın tutarı gir, aradaki farkı gör.</p>
+        <p class="card-subtitle" style="margin-top:0;"><span data-i18n="zReportExpectedLabel">Olması gereken (bugünkü nakit satış)</span>: <span id="zReportExpected" style="font-weight:700;">0,00 ₺</span></p>
+        <div class="form-row two-col">
+          <input id="zReportActual" type="number" min="0" step="0.01" data-i18n-placeholder="zReportActualPh" placeholder="Gerçekte sayılan tutar" />
+          <button id="submitZReportBtn" class="btn btn-primary btn-block">
+            <i class="fa-solid fa-check" aria-hidden="true"></i> <span data-i18n="zReportSubmitBtn">Kaydet</span>
+          </button>
+        </div>
+        <div id="zReportHistoryList" class="list" style="margin-top:10px;"></div>
       </div>
 
       <p class="card-title" data-i18n="topProductsTitle">En çok satan ürünler</p>
@@ -737,6 +758,39 @@
             <i class="fa-solid fa-print" aria-hidden="true"></i> <span data-i18n="printOrderListBtn">Yazdır / PDF Kaydet</span>
           </button>
 
+          <p class="card-title" style="margin-top:14px;" data-i18n="supplierReturnTitle">↩️ Tedarikçiye İade</p>
+          <p class="card-subtitle" data-i18n="supplierReturnSubtitle" style="margin-top:0;">Bozuk/SKT geçmiş ürünü geri gönder — stoktan düşülür, tedarikçi borcundan otomatik düşülür.</p>
+          <select id="returnSupplierProductId">
+            <option value="" data-i18n="selectProduct">Ürün seç</option>
+          </select>
+          <div class="form-row two-col">
+            <input id="returnSupplierQty" type="number" min="0" step="0.001" data-i18n-placeholder="returnQtyPh" placeholder="İade edilen miktar" />
+            <input id="returnSupplierAmount" type="number" min="0" step="0.01" data-i18n-placeholder="returnAmountPh" placeholder="Düşülecek tutar (TL)" />
+          </div>
+          <input id="returnSupplierNote" type="text" data-i18n-placeholder="returnNotePh" placeholder="Not (opsiyonel, örn. SKT geçmiş)" />
+          <button id="submitSupplierReturnBtn" class="btn btn-block" style="margin-top:8px;">
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span data-i18n="submitReturnBtn">İadeyi Kaydet</span>
+          </button>
+
+          <p class="card-title" style="margin-top:14px;" data-i18n="orderTemplateTitle">📋 Sipariş Şablonları</p>
+          <p class="card-subtitle" data-i18n="orderTemplateSubtitle" style="margin-top:0;">Sürekli aynı ürünleri sipariş ediyorsan, bir şablon kaydet — her seferinde tek tıkla gönder.</p>
+          <div id="supplierTemplatesList" class="list" style="margin-bottom:10px;"></div>
+
+          <select id="templateBuilderProductId">
+            <option value="" data-i18n="selectProduct">Ürün seç</option>
+          </select>
+          <div class="form-row two-col">
+            <input id="templateBuilderQty" type="number" min="0" step="0.001" data-i18n-placeholder="templateQtyPh" placeholder="Miktar" />
+            <button id="addTemplateItemBtn" type="button" class="btn btn-block">
+              <i class="fa-solid fa-plus" aria-hidden="true"></i> <span data-i18n="addBtn">Ekle</span>
+            </button>
+          </div>
+          <div id="templateBuilderList" class="list" style="margin:8px 0;"></div>
+          <input id="templateNameInput" type="text" data-i18n-placeholder="templateNamePh" placeholder="Şablon adı (örn. Haftalık Standart Sipariş)" />
+          <button id="saveTemplateBtn" class="btn btn-block" style="margin-top:8px;">
+            <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> <span data-i18n="saveTemplateBtn">Şablonu Kaydet</span>
+          </button>
+
           <button id="deleteSupplierBtn" class="btn btn-danger btn-block" style="margin-top:14px;">
             <i class="fa-solid fa-trash" aria-hidden="true"></i> <span data-i18n="deleteSupplierBtn">Tedarikçiyi sil</span>
           </button>
@@ -835,6 +889,21 @@
         <p class="card-subtitle" data-i18n="priceSuggestSubtitle">Satış hızı ve stok durumuna göre, kâr marjını artırabilecek fiyat önerileri.</p>
         <div id="priceSuggestList" class="list"></div>
         <p id="priceSuggestEmptyState" class="empty-state" data-i18n="priceSuggestEmpty">Şu an bir fiyat önerisi yok.</p>
+      </div>
+
+      <div class="card">
+        <p class="card-title" data-i18n="profitRankTitle">💰 Ürün Karlılık Sıralaması</p>
+        <p class="card-subtitle" data-i18n="profitRankSubtitle">Son 30 günde sana en çok kâr getiren ve en az getiren ürünler.</p>
+        <div class="settings-toggle-row" style="margin-bottom:10px;">
+          <button class="settings-toggle-btn active" id="profitRankTopBtn" data-value="top">
+            <span data-i18n="profitRankTopTab">En Kârlı</span>
+          </button>
+          <button class="settings-toggle-btn" id="profitRankBottomBtn" data-value="bottom">
+            <span data-i18n="profitRankBottomTab">En Az Kârlı</span>
+          </button>
+        </div>
+        <div id="profitRankList" class="list"></div>
+        <p id="profitRankEmptyState" class="empty-state" data-i18n="profitRankEmpty">Son 30 günde yeterli satış verisi yok.</p>
       </div>
 
       <div class="card">
@@ -1517,6 +1586,24 @@
 
   <!-- FATURA TARAMA SONUÇ MODAL -->
   <!-- İŞLETME KONUMU SEÇİCİ MODAL -->
+  <!-- FİZİKSEL STOK SAYIMI MODAL -->
+  <div id="physicalCountModal" class="modal-overlay" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <p class="modal-title" data-i18n="physicalCountModalTitle">Fiziksel Stok Sayımı</p>
+        <button id="closePhysicalCountModalBtn" class="icon-btn" aria-label="Kapat"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <div class="modal-body">
+        <p class="card-subtitle" data-i18n="physicalCountInstructions">Her ürünün yanına, gerçekte saydığın miktarı yaz. Değiştirmediğin ürünler aynı kalır.</p>
+        <input id="physicalCountSearch" class="form-row" type="text" data-i18n-placeholder="physicalCountSearchPh" placeholder="Ürün ara..." style="width:100%;" />
+        <div id="physicalCountList" class="list" style="margin-top:10px;max-height:50vh;overflow-y:auto;"></div>
+        <button id="applyPhysicalCountBtn" class="btn btn-primary btn-block" style="margin-top:12px;">
+          <i class="fa-solid fa-check" aria-hidden="true"></i> <span data-i18n="applyCountBtn">Sayımı Uygula</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="businessLocationModal" class="modal-overlay" style="display:none;">
     <div class="modal">
       <div class="modal-header">

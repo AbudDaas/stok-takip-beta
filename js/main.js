@@ -3,11 +3,11 @@ import { forgotPassword, importLocalBackup, load, logout, registerPeriodicSync, 
 import { showToast } from './02-utils.js';
 import { addStaffMember, enterAsOwner, saveOwnerPin, staffPickerGoBack, submitStaffPickerPin, switchUser } from './03-staff-roles.js';
 import { saveFiscalSettings, toggleFiscalEnabled } from './04-fiscal.js';
-import { addCaseBarcodeEntry, addExtraBarcode, addPendingCaseBarcode, addPendingExtraBarcode, addProduct, addWarehouseStock, adjustQty, closeModal, deleteProduct, handleCsvImportFile, handleEditProductPhotoUpload, handleNewProductPhotoUpload, printAllQrCodes, printQr, printSelfSourceList, resetAll, saveEdit, setQtyManually, transferToShelf, translateMissingProductNames } from './05-products.js';
+import { addCaseBarcodeEntry, addExtraBarcode, addPendingCaseBarcode, addPendingExtraBarcode, addProduct, addWarehouseStock, adjustQty, applyPhysicalCount, closeModal, closePhysicalCountModal, deleteProduct, handleCsvImportFile, handleEditProductPhotoUpload, handleNewProductPhotoUpload, openPhysicalCountModal, printAllQrCodes, printQr, printSelfSourceList, renderPhysicalCountList, resetAll, saveEdit, setQtyManually, transferToShelf, translateMissingProductNames } from './05-products.js';
 import { addCustomer, closeCustomerModal, deleteCustomer, recordPayment, renderVeresiyeCustomerResults, saveCustomerEdit } from './06-veresiye.js';
 import { checkGiftCardBalance, clearCart, closeQuickBarcodeScan, completeSale, openQuickBarcodeScan, renderCart, renderManualAddResults, setPaymentType, setScanMode, startScan, startScanKasa, stopScan, stopScanKasa } from './07-kasa-checkout.js';
-import { closeReturnModal, confirmReturn, renderSales } from './08-sales-returns.js';
-import { addSuggestedSuppliers, addSupplier, addSupplierDebt, addSupplierPayment, assignSelectedProductsToSupplier, closeSupplierModal, deleteSupplier, printSupplierOrderList, renderSupplierProductPicker, sendSupplierOrderWhatsApp } from './09-suppliers.js';
+import { closeReturnModal, confirmReturn, renderSales, submitZReport } from './08-sales-returns.js';
+import { addSuggestedSuppliers, addSupplier, addSupplierDebt, addSupplierPayment, addTemplateBuilderItem, assignSelectedProductsToSupplier, closeSupplierModal, deleteSupplier, printSupplierOrderList, renderSupplierProductPicker, saveOrderTemplate, sendSupplierOrderWhatsApp, submitSupplierReturn } from './09-suppliers.js';
 import { addExpense } from './21-expenses.js';
 import { createGiftCard } from './23-giftcards.js';
 import { addBreadConfig, sendBreadWhatsApp } from './11-bread-orders.js';
@@ -16,7 +16,7 @@ import { addCatalogItem, closeBranchEditModal, createBranch, exitBranchView, sav
 import { createAdminBusiness } from './14-admin-panel.js';
 import { confirmVoiceAction, hideVoiceCommandConfirm, setVoiceLang, startVoiceCommand, startVoiceInput } from './15-voice-commands.js';
 import { addAllBulkScanProducts, applyInvoiceScan, checkForLaunchedFile, checkForNoteTakingLaunch, checkForProtocolLaunch, checkForSharedPhoto, closeBulkScanModal, closeInvoiceScanModal, handleInvoicePhotos, handleShelfPhotos, setInvoiceScanDestination } from './16-bulk-scan-ai.js';
-import { askAiAdvisor, createOrderFromEngine, printOrderEngineList, renderOrderEngine } from './17-ai-panel.js';
+import { askAiAdvisor, createOrderFromEngine, printOrderEngineList, renderOrderEngine, renderProfitRanking } from './17-ai-panel.js';
 import { applyFontSize, applyNavPosition, applyScanCooldown, applyScanFps, applySimpleMode, applyTheme, closeBusinessLocationModal, confirmBusinessLocation, copyPublicCatalogLink, downloadBackup, handleLogoUpload, initSettings, openBusinessLocationPicker, resetBrandIdentity, saveBrandIdentity, saveDeliverySettings, saveLoyaltySettings, savePublicCatalogSettings, saveScaleBarcodeSettings, sendFeedback, toggleLoyalty, togglePublicCatalog, toggleScaleBarcodeEnabled } from './18-settings-backup.js';
 import { finishOnboarding, onboardingNext } from './19-onboarding.js';
 import { renderAll, switchTab } from './20-navigation.js';
@@ -152,6 +152,11 @@ document.getElementById("invoicePhotoBtn").addEventListener("click", () => {
 document.getElementById("csvImportBtn").addEventListener("click", () => {
     document.getElementById("csvImportInput").click();
   });
+
+document.getElementById("openPhysicalCountBtn").addEventListener("click", openPhysicalCountModal);
+document.getElementById("closePhysicalCountModalBtn").addEventListener("click", closePhysicalCountModal);
+document.getElementById("applyPhysicalCountBtn").addEventListener("click", applyPhysicalCount);
+document.getElementById("physicalCountSearch").addEventListener("input", (e) => renderPhysicalCountList(e.target.value));
 
 document.getElementById("csvImportInput").addEventListener("change", (e) => {
     const file = e.target.files[0];
@@ -374,6 +379,9 @@ document.getElementById("supplierProductSearch").addEventListener("input", rende
 
 document.getElementById("supplierAssignProductsBtn").addEventListener("click", assignSelectedProductsToSupplier);
 
+document.getElementById("submitSupplierReturnBtn").addEventListener("click", submitSupplierReturn);
+document.getElementById("addTemplateItemBtn").addEventListener("click", addTemplateBuilderItem);
+document.getElementById("saveTemplateBtn").addEventListener("click", saveOrderTemplate);
 document.getElementById("deleteSupplierBtn").addEventListener("click", deleteSupplier);
 
 document.getElementById("closeReturnModalBtn").addEventListener("click", closeReturnModal);
@@ -383,6 +391,7 @@ document.getElementById("returnModal").addEventListener("click", (e) => {
   });
 
 document.getElementById("confirmReturnBtn").addEventListener("click", confirmReturn);
+document.getElementById("submitZReportBtn").addEventListener("click", submitZReport);
 
 document.getElementById("voiceCommandBtn").addEventListener("click", startVoiceCommand);
 
@@ -392,6 +401,8 @@ document.getElementById("voiceCommandConfirmNo").addEventListener("click", hideV
 
 document.getElementById("orderEngineCreateBtn").addEventListener("click", createOrderFromEngine);
 document.getElementById("orderEnginePrintBtn").addEventListener("click", printOrderEngineList);
+document.getElementById("profitRankTopBtn").addEventListener("click", () => renderProfitRanking("top"));
+document.getElementById("profitRankBottomBtn").addEventListener("click", () => renderProfitRanking("bottom"));
 
 document.getElementById("orderEngineFilterSelect").addEventListener("change", renderOrderEngine);
 

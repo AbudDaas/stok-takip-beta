@@ -138,6 +138,8 @@ export function attachFirestoreListener() {
           state.incomingOrders = data.incomingOrders || [];
           state.blockedPhones = data.blockedPhones || [];
           state.blockedIPs = data.blockedIPs || [];
+          state.zReports = data.zReports || [];
+          state.orderTemplates = data.orderTemplates || [];
 
           // ---- Çakışma tespiti ----
           // Bu koda ulaşan her anlık görüntü, KENDİ yazdığımız bir kayıt
@@ -321,14 +323,14 @@ export function save() {
     if (state.cloudEnabled) {
       if (!state.docRef) return;
       state.suppressNextSnapshot = true;
-      state.docRef.set({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, _rev: state._rev }, { merge: true }).catch((e) => {
+      state.docRef.set({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, zReports: state.zReports, orderTemplates: state.orderTemplates, _rev: state._rev }, { merge: true }).catch((e) => {
         console.error("Bulut kaydetme hatası", e);
         setSyncStatus("error");
         registerBackgroundSync();
       });
     } else {
       try {
-        localStorage.setItem(state.STORAGE_KEY, JSON.stringify({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, _rev: state._rev }));
+        localStorage.setItem(state.STORAGE_KEY, JSON.stringify({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, zReports: state.zReports, orderTemplates: state.orderTemplates, _rev: state._rev }));
       } catch (e) {
         console.error("Yerel kaydetme hatası", e);
       }

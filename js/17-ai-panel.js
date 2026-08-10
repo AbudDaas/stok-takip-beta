@@ -446,6 +446,50 @@ export function renderExpiryTracking() {
       .join("");
   }
 
+export function renderProfitRanking(mode) {
+    mode = mode || state.profitRankMode || "top";
+    state.profitRankMode = mode;
+    document.getElementById("profitRankTopBtn").classList.toggle("active", mode === "top");
+    document.getElementById("profitRankBottomBtn").classList.toggle("active", mode === "bottom");
+
+    const listEl = document.getElementById("profitRankList");
+    const emptyEl = document.getElementById("profitRankEmptyState");
+    if (!listEl) return;
+
+    const thirtyDaysAgo = Date.now() - 30 * 86400000;
+    const profitByProduct = {};
+    state.sales
+      .filter((s) => new Date(s.timestamp).getTime() >= thirtyDaysAgo)
+      .forEach((s) => {
+        (s.items || []).forEach((item) => {
+          const lineProfit = (item.price - (item.costPrice || 0)) * item.qty;
+          profitByProduct[item.name] = (profitByProduct[item.name] || 0) + lineProfit;
+        });
+      });
+
+    let ranked = Object.entries(profitByProduct).map(([name, profit]) => ({ name, profit }));
+    if (!ranked.length) {
+      listEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    ranked.sort((a, b) => (mode === "top" ? b.profit - a.profit : a.profit - b.profit));
+    ranked = ranked.slice(0, 10);
+
+    listEl.innerHTML = ranked
+      .map((r, i) => {
+        const color = r.profit >= 0 ? "var(--green-text)" : "var(--red-text)";
+        return `
+          <div class="reminder-row">
+            <p class="reminder-name">${i + 1}. ${escapeHtml(r.name)}</p>
+            <span style="font-weight:700;color:${color};">${formatTL(r.profit)}</span>
+          </div>`;
+      })
+      .join("");
+  }
+
 export function renderAnomalyDetection() {
     const listEl = document.getElementById("anomalyList");
     const emptyEl = document.getElementById("anomalyEmptyState");
@@ -549,6 +593,7 @@ export function renderAiPanel() {
     renderLostSales();
     renderExpiryTracking();
     renderPriceSuggestions();
+    renderProfitRanking();
     renderAnomalyDetection();
     renderShelfCheckAlert();
   }
