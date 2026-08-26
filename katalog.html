@@ -337,7 +337,6 @@
     </div>
   </div>
 
-  <script src="js/chain-config.js"></script>
   <script>
     let allProducts = [];
     let businessPhone = "";
@@ -346,6 +345,12 @@
     let businessLng = null;
     let perKmDeliveryFee = 0;
     let currentBusinessId = "";
+
+    // workers.dev bazı ağlarda engellenebildiği için, katalog ve sipariş
+    // uç noktaları artık Firebase Cloud Functions üzerinden (Google'ın
+    // kendi altyapısı, cloudfunctions.net) çalışıyor.
+    const PUBLIC_CATALOG_URL = "https://us-central1-bakkal-stok.cloudfunctions.net/publicCatalog";
+    const SUBMIT_ORDER_URL = "https://us-central1-bakkal-stok.cloudfunctions.net/submitOrder";
     let activeCategory = "";
 
     const cart = {};
@@ -702,7 +707,7 @@
       sendBtn.disabled = true;
       sendBtn.textContent = "Gönderiliyor…";
 
-      if (!currentBusinessId || typeof chainConfig === "undefined" || !chainConfig.workerUrl) {
+      if (!currentBusinessId) {
         warnEl.textContent = "Sipariş sistemi şu an kullanılamıyor, lütfen daha sonra tekrar dene.";
         warnEl.style.display = "block";
         sendBtn.disabled = false;
@@ -711,7 +716,7 @@
       }
 
       try {
-        const res = await fetch(`${chainConfig.workerUrl}/submit-order`, {
+        const res = await fetch(SUBMIT_ORDER_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -761,13 +766,9 @@
         contentEl.innerHTML = '<div class="error-state">Geçersiz katalog bağlantısı.</div>';
         return;
       }
-      if (typeof chainConfig === "undefined" || !chainConfig.workerUrl || chainConfig.workerUrl.indexOf("BURAYA") === 0) {
-        contentEl.innerHTML = '<div class="error-state">Katalog şu an kullanılamıyor.</div>';
-        return;
-      }
 
       try {
-        const response = await fetch(`${chainConfig.workerUrl}/public-catalog?id=${encodeURIComponent(businessId)}`);
+        const response = await fetch(`${PUBLIC_CATALOG_URL}?id=${encodeURIComponent(businessId)}`);
         const data = await response.json();
 
         if (!response.ok || data.error) {
