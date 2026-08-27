@@ -996,9 +996,15 @@
     document.getElementById("authLogoutBtn").addEventListener("click", () => firebaseAuth.signOut());
 
     if (typeof firebaseConfig !== "undefined") {
-      firebase.initializeApp(firebaseConfig);
-      firebaseAuth = firebase.auth();
-      firestoreDb = firebase.firestore();
+      // ÖNEMLİ: Ana uygulama (index.html) da aynı Firebase projesini
+      // kullanıyor. Eğer burada firebase.initializeApp(firebaseConfig)
+      // (isimsiz/varsayılan uygulama) kullanılsaydı, ikisi AYNI tarayıcı
+      // oturumunu paylaşırdı — biri giriş yapınca diğeri etkilenirdi. Bunu
+      // önlemek için, müşteri girişini TAMAMEN AYRI, isimlendirilmiş bir
+      // Firebase uygulama örneğinde ("katalogApp") çalıştırıyoruz.
+      const catalogFirebaseApp = firebase.initializeApp(firebaseConfig, "katalogApp");
+      firebaseAuth = catalogFirebaseApp.auth();
+      firestoreDb = catalogFirebaseApp.firestore();
 
       firebaseAuth.onAuthStateChanged((user) => {
         document.getElementById("authPendingView").style.display = "none";
