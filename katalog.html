@@ -55,6 +55,12 @@
       font-family: var(--font-display); font-weight: 600; font-size: 18px;
       margin: 0; letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
+    .top-nav-btns { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .top-nav-btn {
+      background: transparent; border: 1.5px solid #3B4D38; color: var(--paper);
+      width: 40px; height: 40px; border-radius: 10px; cursor: pointer; font-size: 15px;
+      display: flex; align-items: center; justify-content: center;
+    }
     .cart-icon-btn {
       position: relative; background: var(--tomato); border: none; color: #fff;
       width: 42px; height: 42px; border-radius: 10px; cursor: pointer; font-size: 17px;
@@ -67,6 +73,7 @@
       border-radius: 9px; display: none; align-items: center; justify-content: center;
       padding: 0 4px; border: 2px solid var(--ink);
     }
+    #profileMap { height: 220px; border-radius: 8px; margin-top: 10px; display: none; border: 1.5px solid var(--line); }
     .search-row { max-width: 1000px; margin: 0 auto; }
     .search-box {
       width: 100%; padding: 12px 16px; border-radius: 10px;
@@ -282,6 +289,7 @@
           <div class="delivery-choice-btn" id="authTabSignup">Kayıt Ol</div>
         </div>
         <input id="authNameInput" class="address-input" style="min-height:auto;display:none;" type="text" placeholder="Adın Soyadın" />
+        <input id="authPhoneInput" class="address-input" style="min-height:auto;margin-top:8px;display:none;" type="tel" placeholder="Telefon numaran (örn. 05551234567)" />
         <input id="authEmailInput" class="address-input" style="min-height:auto;margin-top:8px;" type="email" placeholder="E-posta adresin" />
         <input id="authPasswordInput" class="address-input" style="min-height:auto;margin-top:8px;" type="password" placeholder="Şifre (en az 6 karakter)" />
         <p id="authError" class="warn-text" style="display:none;"></p>
@@ -302,16 +310,54 @@
         <img id="businessLogoImg" src="" alt="" />
         <h1 id="businessNameHeader">Ürün Kataloğu</h1>
       </div>
-      <button id="openCartBtn" class="cart-icon-btn" aria-label="Sepetim">
-        <i class="fa-solid fa-basket-shopping" aria-hidden="true"></i>
-        <span id="cartBarCount" class="cart-icon-badge">0</span>
-      </button>
+      <div class="top-nav-btns">
+        <button id="openProfileBtn" class="top-nav-btn" aria-label="Profilim">
+          <i class="fa-solid fa-user" aria-hidden="true"></i>
+        </button>
+        <button id="openCartBtn" class="cart-icon-btn" aria-label="Sepetim">
+          <i class="fa-solid fa-basket-shopping" aria-hidden="true"></i>
+          <span id="cartBarCount" class="cart-icon-badge">0</span>
+        </button>
+        <button id="topLogoutBtn" class="top-nav-btn" aria-label="Çıkış Yap">
+          <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
+        </button>
+      </div>
     </div>
     <div class="search-row">
       <input id="searchBox" class="search-box" type="text" placeholder="Ürün ara..." style="display:none;" />
     </div>
     <div id="categoryChips" class="category-chips"></div>
   </header>
+
+  <!-- PROFİL PENCERESİ -->
+  <div id="profileSheetOverlay" class="sheet-overlay">
+    <div class="receipt">
+      <button class="sheet-close" id="closeProfileSheetBtn" aria-label="Kapat">&times;</button>
+      <p class="receipt-title">Profilim</p>
+      <p class="receipt-subtitle">bilgilerin</p>
+
+      <div class="cart-line-row" style="border:none;padding-top:0;">
+        <div>
+          <div class="cart-line-name" id="profileName"></div>
+          <div class="cart-line-meta" id="profileEmail"></div>
+          <div class="cart-line-meta" id="profilePhone"></div>
+        </div>
+      </div>
+
+      <hr class="receipt-rule" />
+      <p class="step-label">🚚 Kayıtlı Teslimat Konumun</p>
+      <p class="card-subtitle" style="margin-top:0;font-size:12.5px;">Kaydedersen, kurye ile sipariş verirken her seferinde tekrar sormayız.</p>
+      <p id="profileLocationStatus" class="card-subtitle" style="margin-top:0;font-weight:600;"></p>
+      <button id="pickProfileLocationBtn" class="map-btn">
+        <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Haritadan İşaretle / Güncelle
+      </button>
+      <div id="profileMap"></div>
+      <button id="saveProfileLocationBtn" class="send-order-btn" style="display:none;margin-top:10px;">
+        <i class="fa-solid fa-check" aria-hidden="true"></i> Konumu Kaydet
+      </button>
+      <div class="receipt-footer-rule"></div>
+    </div>
+  </div>
 
   <main class="main-area" id="mainAppContent" style="display:none;">
     <div id="newProductsSection" class="highlight-section" style="display:none;">
@@ -339,10 +385,6 @@
 
         <div id="deliveryStep" style="display:none;">
           <hr class="receipt-rule" />
-          <p class="step-label">Bilgilerin</p>
-          <input id="customerNameInput" class="address-input" style="min-height:auto;" type="text" placeholder="Adın Soyadın" />
-          <input id="customerPhoneInput" class="address-input" style="min-height:auto;margin-top:8px;" type="tel" placeholder="Telefon numaran (örn. 05551234567)" />
-
           <p class="step-label" style="margin-top:16px;">Nasıl teslim alacaksın?</p>
           <div class="delivery-choice-row">
             <div class="delivery-choice-btn active" id="choosePickupBtn">
@@ -356,6 +398,7 @@
           </div>
 
           <div id="courierSection" style="display:none;">
+            <p id="savedLocationNote" class="card-subtitle" style="display:none;font-weight:600;margin-top:0;"></p>
             <button id="pickOnMapBtn" class="map-btn">
               <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Haritadan Konumumu İşaretle
             </button>
@@ -660,6 +703,24 @@
       document.getElementById("choosePickupBtn").classList.toggle("active", mode === "pickup");
       document.getElementById("chooseCourierBtn").classList.toggle("active", mode === "courier");
       document.getElementById("courierSection").style.display = mode === "courier" ? "block" : "none";
+
+      const noteEl = document.getElementById("savedLocationNote");
+      const mapBtn = document.getElementById("pickOnMapBtn");
+      if (mode === "courier" && customerProfile && customerProfile.savedLat != null) {
+        // Profilde kayıtlı bir konum var — her seferinde tekrar sormuyoruz.
+        pickedLat = customerProfile.savedLat;
+        pickedLng = customerProfile.savedLng;
+        noteEl.textContent = "✅ Kayıtlı teslimat konumun kullanılacak (Profil'den değiştirebilirsin).";
+        noteEl.style.display = "block";
+        mapBtn.style.display = "none";
+      } else {
+        noteEl.style.display = "none";
+        mapBtn.style.display = "block";
+        if (mode === "courier") {
+          pickedLat = null;
+          pickedLng = null;
+        }
+      }
       updateFeeSummary();
     }
 
@@ -757,12 +818,12 @@
     }
 
     async function sendOrder() {
-      const customerName = document.getElementById("customerNameInput").value.trim();
-      const customerPhone = document.getElementById("customerPhoneInput").value.trim();
+      const customerName = customerProfile ? customerProfile.name : "";
+      const customerPhone = customerProfile ? customerProfile.phone : "";
       const warnEl = document.getElementById("customerInfoWarn");
 
       if (!customerName || !customerPhone) {
-        warnEl.textContent = "Lütfen adını ve telefon numaranı gir.";
+        warnEl.textContent = "Profil bilgilerin eksik görünüyor, lütfen tekrar giriş yap.";
         warnEl.style.display = "block";
         return;
       }
@@ -888,6 +949,16 @@
 
     document.getElementById("searchBox").addEventListener("input", (e) => renderProducts(allProducts, e.target.value));
     document.getElementById("openCartBtn").addEventListener("click", openCartSheet);
+    document.getElementById("openProfileBtn").addEventListener("click", openProfileSheet);
+    document.getElementById("closeProfileSheetBtn").addEventListener("click", closeProfileSheet);
+    document.getElementById("pickProfileLocationBtn").addEventListener("click", openProfileMap);
+    document.getElementById("saveProfileLocationBtn").addEventListener("click", saveProfileLocation);
+    document.getElementById("topLogoutBtn").addEventListener("click", () => {
+      if (confirm("Çıkış yapmak istediğine emin misin?")) firebaseAuth.signOut();
+    });
+    document.getElementById("profileSheetOverlay").addEventListener("click", (e) => {
+      if (e.target.id === "profileSheetOverlay") closeProfileSheet();
+    });
     document.getElementById("closeCartSheetBtn").addEventListener("click", closeCartSheet);
     document.getElementById("choosePickupBtn").addEventListener("click", () => chooseDelivery("pickup"));
     document.getElementById("chooseCourierBtn").addEventListener("click", () => chooseDelivery("courier"));
@@ -900,14 +971,111 @@
 
     // ---------- Müşteri girişi / kaydı ----------
     let authMode = "login";
+    let customerProfile = null;
+    let profileMap = null;
+    let profileMarker = null;
+    let profilePickedLat = null;
+    let profilePickedLng = null;
     let firebaseAuth = null;
     let firestoreDb = null;
+
+    // ---------- Profil penceresi ----------
+    function openProfileSheet() {
+      if (!customerProfile) return;
+      document.getElementById("profileName").textContent = customerProfile.name;
+      document.getElementById("profileEmail").textContent = customerProfile.email;
+      document.getElementById("profilePhone").textContent = customerProfile.phone;
+      updateProfileLocationStatus();
+      document.getElementById("saveProfileLocationBtn").style.display = "none";
+      document.getElementById("profileMap").style.display = "none";
+      profilePickedLat = null;
+      profilePickedLng = null;
+      document.getElementById("profileSheetOverlay").classList.add("show");
+    }
+    function closeProfileSheet() {
+      document.getElementById("profileSheetOverlay").classList.remove("show");
+    }
+    function updateProfileLocationStatus() {
+      const statusEl = document.getElementById("profileLocationStatus");
+      if (customerProfile.savedLat != null) {
+        statusEl.textContent = "✅ Kayıtlı bir teslimat konumun var.";
+      } else {
+        statusEl.textContent = "⚠️ Henüz kayıtlı bir teslimat konumun yok.";
+      }
+    }
+
+    function openProfileMap() {
+      const mapEl = document.getElementById("profileMap");
+      mapEl.style.display = "block";
+      document.getElementById("saveProfileLocationBtn").style.display = "block";
+
+      const startLat = customerProfile.savedLat || businessLat || 39.0;
+      const startLng = customerProfile.savedLng || businessLng || 35.0;
+
+      setTimeout(() => {
+        if (!profileMap) {
+          profileMap = L.map("profileMap").setView([startLat, startLng], customerProfile.savedLat ? 15 : businessLat ? 13 : 6);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(profileMap);
+          profileMarker = L.marker([startLat, startLng], { draggable: true }).addTo(profileMap);
+          profileMarker.on("dragend", () => {
+            const pos = profileMarker.getLatLng();
+            profilePickedLat = pos.lat;
+            profilePickedLng = pos.lng;
+          });
+          profileMap.on("click", (e) => {
+            profileMarker.setLatLng(e.latlng);
+            profilePickedLat = e.latlng.lat;
+            profilePickedLng = e.latlng.lng;
+          });
+        } else {
+          profileMap.setView([startLat, startLng], 15);
+          profileMarker.setLatLng([startLat, startLng]);
+        }
+        profilePickedLat = startLat;
+        profilePickedLng = startLng;
+        profileMap.invalidateSize();
+
+        if (navigator.geolocation && !customerProfile.savedLat) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              profileMap.setView([lat, lng], 15);
+              profileMarker.setLatLng([lat, lng]);
+              profilePickedLat = lat;
+              profilePickedLng = lng;
+            },
+            () => {}
+          );
+        }
+      }, 250);
+    }
+
+    async function saveProfileLocation() {
+      if (profilePickedLat == null) return;
+      try {
+        await firestoreDb.collection("customerAccounts").doc(customerProfile.uid).update({
+          savedLat: profilePickedLat,
+          savedLng: profilePickedLng
+        });
+        customerProfile.savedLat = profilePickedLat;
+        customerProfile.savedLng = profilePickedLng;
+        updateProfileLocationStatus();
+        document.getElementById("saveProfileLocationBtn").textContent = "✅ Kaydedildi";
+        setTimeout(() => {
+          document.getElementById("saveProfileLocationBtn").innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i> Konumu Kaydet';
+        }, 1500);
+      } catch (err) {
+        console.error("Konum kaydedilemedi:", err);
+      }
+    }
 
     function setAuthMode(mode) {
       authMode = mode;
       document.getElementById("authTabLogin").classList.toggle("active", mode === "login");
       document.getElementById("authTabSignup").classList.toggle("active", mode === "signup");
       document.getElementById("authNameInput").style.display = mode === "signup" ? "block" : "none";
+      document.getElementById("authPhoneInput").style.display = mode === "signup" ? "block" : "none";
       document.getElementById("authSubmitBtn").textContent = mode === "signup" ? "Kayıt Ol" : "Giriş Yap";
       document.getElementById("authError").style.display = "none";
     }
@@ -922,13 +1090,14 @@
       const email = document.getElementById("authEmailInput").value.trim();
       const password = document.getElementById("authPasswordInput").value;
       const name = document.getElementById("authNameInput").value.trim();
+      const phone = document.getElementById("authPhoneInput").value.trim();
 
       if (!email || !password) {
         showAuthError("Lütfen e-posta ve şifreni gir.");
         return;
       }
-      if (authMode === "signup" && !name) {
-        showAuthError("Lütfen adını gir.");
+      if (authMode === "signup" && (!name || !phone)) {
+        showAuthError("Lütfen adını ve telefon numaranı gir.");
         return;
       }
 
@@ -942,8 +1111,11 @@
           await firestoreDb.collection("customerAccounts").doc(cred.user.uid).set({
             email,
             name,
+            phone,
             businessId,
             approved: false,
+            savedLat: null,
+            savedLng: null,
             createdAt: new Date().toISOString()
           });
         } else {
@@ -974,9 +1146,11 @@
           await firebaseAuth.signOut();
           return;
         }
-        const approved = !!docSnap.data().approved;
+        const data = docSnap.data();
+        const approved = !!data.approved;
         document.getElementById("authFormView").style.display = approved ? "none" : "none";
         if (approved) {
+          customerProfile = { uid: user.uid, name: data.name || "", email: data.email || "", phone: data.phone || "", savedLat: data.savedLat || null, savedLng: data.savedLng || null };
           document.getElementById("authGate").style.display = "none";
           document.getElementById("mainAppHeader").style.display = "block";
           document.getElementById("mainAppContent").style.display = "block";
