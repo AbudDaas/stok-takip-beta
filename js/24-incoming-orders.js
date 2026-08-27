@@ -3,6 +3,81 @@ import { locale, save } from './01-firebase-core.js';
 import { escapeHtml, formatTL, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
 
+/**
+ * Katalogdan hesap oluşturan ama henüz onaylanmamış müşterileri listeler.
+ * Bu müşteriler, onaylanana kadar kataloğu hiç göremiyor/sipariş veremiyor.
+ */
+export async function renderPendingCustomers() {
+  const listEl = document.getElementById("pendingCustomersList");
+  const emptyEl = document.getElementById("pendingCustomersEmptyState");
+  if (!listEl || !state.db || !state.docRef) return;
+
+  try {
+    const snapshot = await state.db
+      .collection("customerAccounts")
+      .where("businessId", "==", state.docRef.id)
+      .where("approved", "==", false)
+      .get();
+
+    if (snapshot.empty) {
+      listEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    listEl.innerHTML = snapshot.docs
+      .map((doc) => {
+        const c = doc.data();
+        return `
+          <div class="reminder-row">
+            <div>
+              <p class="reminder-name">${escapeHtml(c.name || c.email)}</p>
+              <p class="reminder-meta">${escapeHtml(c.email)}</p>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn btn-sm btn-primary approve-customer-btn" data-id="${doc.id}">${state.t("approveBtn")}</button>
+              <button class="btn btn-sm btn-danger reject-customer-btn" data-id="${doc.id}"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+          </div>`;
+      })
+      .join("");
+
+    listEl.querySelectorAll(".approve-customer-btn").forEach((btn) => {
+      btn.addEventListener("click", () => approveCustomer(btn.dataset.id));
+    });
+    listEl.querySelectorAll(".reject-customer-btn").forEach((btn) => {
+      btn.addEventListener("click", () => rejectCustomer(btn.dataset.id));
+    });
+  } catch (err) {
+    console.error("Bekleyen müşteriler yüklenemedi", err);
+  }
+}
+
+export async function approveCustomer(customerId) {
+  try {
+    await state.db.collection("customerAccounts").doc(customerId).update({ approved: true });
+    logAudit("Müşteri hesabı onaylandı", customerId);
+    showToast(state.t("customerApproved"), "success");
+    renderPendingCustomers();
+  } catch (err) {
+    console.error("Onaylanamadı", err);
+    showToast(state.t("approvalFailed"), "error");
+  }
+}
+
+export async function rejectCustomer(customerId) {
+  if (!confirm(state.t("rejectCustomerConfirm"))) return;
+  try {
+    await state.db.collection("customerAccounts").doc(customerId).delete();
+    logAudit("Müşteri hesabı reddedildi", customerId);
+    renderPendingCustomers();
+  } catch (err) {
+    console.error("Reddedilemedi", err);
+    showToast(state.t("approvalFailed"), "error");
+  }
+}
+
 export function renderIncomingOrders() {
   const listEl = document.getElementById("incomingOrdersList");
   const emptyEl = document.getElementById("incomingOrdersEmptyState");

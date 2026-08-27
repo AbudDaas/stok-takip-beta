@@ -693,6 +693,13 @@
 
     <!-- SEKME: GELEN SİPARİŞLER -->
     <section id="tab-incoming-orders" class="tab-panel">
+      <div class="card" style="margin-bottom:16px;">
+        <p class="card-title" data-i18n="pendingCustomersTitle">👤 Bekleyen Müşteri Hesapları</p>
+        <p class="card-subtitle" data-i18n="pendingCustomersSubtitle">Katalogdan hesap oluşturan müşteriler, onayladıktan sonra sipariş verebilir.</p>
+        <div id="pendingCustomersList" class="list"></div>
+        <p id="pendingCustomersEmptyState" class="empty-state" data-i18n="pendingCustomersEmpty">Onay bekleyen müşteri yok.</p>
+      </div>
+
       <p class="card-subtitle" data-i18n="incomingOrdersSubtitle" style="margin-bottom:14px;">Herkese açık kataloğundan gelen siparişler burada otomatik olarak listelenir.</p>
       <div id="incomingOrdersList" class="list"></div>
       <p id="incomingOrdersEmptyState" class="empty-state" data-i18n="incomingOrdersEmpty">Henüz gelen bir sipariş yok.</p>

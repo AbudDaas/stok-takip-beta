@@ -10,6 +10,10 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
   <style>
     :root {
       --paper: #F7F1E4;
@@ -256,10 +260,43 @@
       background: repeating-linear-gradient(90deg, var(--ink) 0 1.5px, transparent 1.5px 4px);
       opacity: 0.55;
     }
+    .auth-gate {
+      position: fixed; inset: 0; z-index: 1000; background: var(--paper);
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .auth-card {
+      background: var(--card); border-radius: 16px; padding: 26px 22px;
+      width: 100%; max-width: 380px; box-shadow: 0 4px 20px rgba(33, 48, 31, 0.12);
+    }
   </style>
 </head>
 <body>
-  <header class="top-bar">
+  <div id="authGate" class="auth-gate">
+    <div class="auth-card">
+      <p class="receipt-title" style="text-align:center;">Alışverişe Başlamadan Önce</p>
+      <p class="receipt-subtitle" style="text-align:center;">giriş yap ya da hesap oluştur</p>
+
+      <div id="authFormView">
+        <div class="delivery-choice-row" style="margin-bottom:14px;">
+          <div class="delivery-choice-btn active" id="authTabLogin">Giriş Yap</div>
+          <div class="delivery-choice-btn" id="authTabSignup">Kayıt Ol</div>
+        </div>
+        <input id="authNameInput" class="address-input" style="min-height:auto;display:none;" type="text" placeholder="Adın Soyadın" />
+        <input id="authEmailInput" class="address-input" style="min-height:auto;margin-top:8px;" type="email" placeholder="E-posta adresin" />
+        <input id="authPasswordInput" class="address-input" style="min-height:auto;margin-top:8px;" type="password" placeholder="Şifre (en az 6 karakter)" />
+        <p id="authError" class="warn-text" style="display:none;"></p>
+        <button id="authSubmitBtn" class="send-order-btn" style="margin-top:14px;">Giriş Yap</button>
+      </div>
+
+      <div id="authPendingView" style="display:none;text-align:center;">
+        <i class="fa-solid fa-clock" style="font-size:32px;color:var(--mustard);margin-bottom:10px;display:block;"></i>
+        <p style="font-size:14px;color:var(--ink-soft);line-height:1.6;">Hesabın oluşturuldu, işletme sahibinin onayını bekliyor. Onaylandığında buradan tekrar giriş yapabilirsin.</p>
+        <button id="authLogoutBtn" class="btn-block" style="margin-top:14px;background:none;border:1.5px solid var(--line);border-radius:9px;padding:12px;cursor:pointer;">Çıkış Yap</button>
+      </div>
+    </div>
+  </div>
+
+  <header class="top-bar" style="display:none;" id="mainAppHeader">
     <div class="top-bar-inner">
       <div class="brand-mini">
         <img id="businessLogoImg" src="" alt="" />
@@ -276,7 +313,7 @@
     <div id="categoryChips" class="category-chips"></div>
   </header>
 
-  <main class="main-area">
+  <main class="main-area" id="mainAppContent" style="display:none;">
     <div id="newProductsSection" class="highlight-section" style="display:none;">
       <p class="highlight-title">🆕 Yeni Ürünler</p>
       <div id="newProductsScroll" class="highlight-scroll"></div>
@@ -293,48 +330,62 @@
   <div id="cartSheetOverlay" class="sheet-overlay">
     <div class="receipt">
       <button class="sheet-close" id="closeCartSheetBtn" aria-label="Kapat">&times;</button>
-      <p class="receipt-title">Sipariş Fişi</p>
-      <p class="receipt-subtitle">sepetindekiler</p>
 
-      <div id="cartLinesList"></div>
+      <div id="cartNormalView">
+        <p class="receipt-title">Sipariş Fişi</p>
+        <p class="receipt-subtitle">sepetindekiler</p>
 
-      <div id="deliveryStep" style="display:none;">
-        <hr class="receipt-rule" />
-        <p class="step-label">Bilgilerin</p>
-        <input id="customerNameInput" class="address-input" style="min-height:auto;" type="text" placeholder="Adın Soyadın" />
-        <input id="customerPhoneInput" class="address-input" style="min-height:auto;margin-top:8px;" type="tel" placeholder="Telefon numaran (örn. 05551234567)" />
+        <div id="cartLinesList"></div>
 
-        <p class="step-label" style="margin-top:16px;">Nasıl teslim alacaksın?</p>
-        <div class="delivery-choice-row">
-          <div class="delivery-choice-btn active" id="choosePickupBtn">
-            <i class="fa-solid fa-store" aria-hidden="true"></i>
-            Gelip Alacağım
+        <div id="deliveryStep" style="display:none;">
+          <hr class="receipt-rule" />
+          <p class="step-label">Bilgilerin</p>
+          <input id="customerNameInput" class="address-input" style="min-height:auto;" type="text" placeholder="Adın Soyadın" />
+          <input id="customerPhoneInput" class="address-input" style="min-height:auto;margin-top:8px;" type="tel" placeholder="Telefon numaran (örn. 05551234567)" />
+
+          <p class="step-label" style="margin-top:16px;">Nasıl teslim alacaksın?</p>
+          <div class="delivery-choice-row">
+            <div class="delivery-choice-btn active" id="choosePickupBtn">
+              <i class="fa-solid fa-store" aria-hidden="true"></i>
+              Gelip Alacağım
+            </div>
+            <div class="delivery-choice-btn" id="chooseCourierBtn">
+              <i class="fa-solid fa-motorcycle" aria-hidden="true"></i>
+              Kurye Getirsin
+            </div>
           </div>
-          <div class="delivery-choice-btn" id="chooseCourierBtn">
-            <i class="fa-solid fa-motorcycle" aria-hidden="true"></i>
-            Kurye Getirsin
-          </div>
-        </div>
 
-        <div id="courierSection" style="display:none;">
-          <button id="pickOnMapBtn" class="map-btn">
-            <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Haritadan Konumumu İşaretle
+          <div id="courierSection" style="display:none;">
+            <button id="pickOnMapBtn" class="map-btn">
+              <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Haritadan Konumumu İşaretle
+            </button>
+            <div id="deliveryMap"></div>
+            <textarea id="addressTextInput" class="address-input" placeholder="Adresini yazarak da belirtebilirsin (mahalle, sokak, kapı no...)"></textarea>
+            <p id="deliveryWarn" class="warn-text" style="display:none;"></p>
+          </div>
+
+          <hr class="receipt-rule" />
+          <div id="feeSummary" class="fee-summary" style="display:none;">
+            <div><span>Ürünler Toplamı</span><span id="feeProductTotal">0,00 ₺</span></div>
+            <div id="feeDeliveryRow" style="display:none;"><span>Teslimat Ücreti</span><span id="feeDeliveryAmount">0,00 ₺</span></div>
+            <div class="grand-total"><span>TOPLAM</span><span id="feeGrandTotal">0,00 ₺</span></div>
+          </div>
+          <p id="customerInfoWarn" class="warn-text" style="display:none;"></p>
+
+          <button id="sendOrderBtn" class="send-order-btn">
+            <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Siparişi Gönder
           </button>
-          <div id="deliveryMap"></div>
-          <textarea id="addressTextInput" class="address-input" placeholder="Adresini yazarak da belirtebilirsin (mahalle, sokak, kapı no...)"></textarea>
-          <p id="deliveryWarn" class="warn-text" style="display:none;"></p>
+          <div class="receipt-footer-rule"></div>
         </div>
+      </div>
 
+      <div id="orderSuccessView" style="display:none;">
+        <p class="receipt-title">Siparişin Alındı</p>
+        <p class="receipt-subtitle" id="orderSuccessSubtitle"></p>
         <hr class="receipt-rule" />
-        <div id="feeSummary" class="fee-summary" style="display:none;">
-          <div><span>Ürünler Toplamı</span><span id="feeProductTotal">0,00 ₺</span></div>
-          <div id="feeDeliveryRow" style="display:none;"><span>Teslimat Ücreti</span><span id="feeDeliveryAmount">0,00 ₺</span></div>
-          <div class="grand-total"><span>TOPLAM</span><span id="feeGrandTotal">0,00 ₺</span></div>
-        </div>
-        <p id="customerInfoWarn" class="warn-text" style="display:none;"></p>
-
-        <button id="sendOrderBtn" class="send-order-btn">
-          <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Siparişi Gönder
+        <p style="text-align:center;font-size:14px;color:var(--ink-soft);line-height:1.6;" id="orderSuccessMessage"></p>
+        <button id="startNewOrderBtn" class="send-order-btn" style="background:var(--tomato);">
+          <i class="fa-solid fa-basket-shopping" aria-hidden="true"></i> Yeni Sipariş Ver
         </button>
         <div class="receipt-footer-rule"></div>
       </div>
@@ -549,6 +600,8 @@
     }
 
     function openCartSheet() {
+      document.getElementById("cartNormalView").style.display = "block";
+      document.getElementById("orderSuccessView").style.display = "none";
       renderCartLines();
       document.getElementById("deliveryStep").style.display = Object.keys(cart).length ? "block" : "none";
       updateFeeSummary();
@@ -765,14 +818,10 @@
 
         if (!res.ok) throw new Error("Sunucu hatası: " + res.status);
 
-        document.querySelector(".receipt").innerHTML = `
-          <p class="receipt-title">Siparişin Alındı</p>
-          <p class="receipt-subtitle">teşekkürler, ${escapeHtml(customerName)}</p>
-          <hr class="receipt-rule" />
-          <p style="text-align:center;font-size:14px;color:var(--ink-soft);line-height:1.6;">
-            ${escapeHtml(businessName)} siparişini gördü ve en kısa sürede seninle iletişime geçecek.
-          </p>
-          <div class="receipt-footer-rule"></div>`;
+        document.getElementById("orderSuccessSubtitle").textContent = `teşekkürler, ${customerName}`;
+        document.getElementById("orderSuccessMessage").textContent = `${businessName} siparişini gördü ve en kısa sürede seninle iletişime geçecek.`;
+        document.getElementById("cartNormalView").style.display = "none";
+        document.getElementById("orderSuccessView").style.display = "block";
 
         Object.keys(cart).forEach((k) => delete cart[k]);
         updateCartBar();
@@ -844,11 +893,127 @@
     document.getElementById("chooseCourierBtn").addEventListener("click", () => chooseDelivery("courier"));
     document.getElementById("pickOnMapBtn").addEventListener("click", openDeliveryMap);
     document.getElementById("sendOrderBtn").addEventListener("click", sendOrder);
+    document.getElementById("startNewOrderBtn").addEventListener("click", closeCartSheet);
     document.getElementById("cartSheetOverlay").addEventListener("click", (e) => {
       if (e.target.id === "cartSheetOverlay") closeCartSheet();
     });
 
-    loadCatalog();
+    // ---------- Müşteri girişi / kaydı ----------
+    let authMode = "login";
+    let firebaseAuth = null;
+    let firestoreDb = null;
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      document.getElementById("authTabLogin").classList.toggle("active", mode === "login");
+      document.getElementById("authTabSignup").classList.toggle("active", mode === "signup");
+      document.getElementById("authNameInput").style.display = mode === "signup" ? "block" : "none";
+      document.getElementById("authSubmitBtn").textContent = mode === "signup" ? "Kayıt Ol" : "Giriş Yap";
+      document.getElementById("authError").style.display = "none";
+    }
+
+    function showAuthError(msg) {
+      const el = document.getElementById("authError");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    async function handleAuthSubmit() {
+      const email = document.getElementById("authEmailInput").value.trim();
+      const password = document.getElementById("authPasswordInput").value;
+      const name = document.getElementById("authNameInput").value.trim();
+
+      if (!email || !password) {
+        showAuthError("Lütfen e-posta ve şifreni gir.");
+        return;
+      }
+      if (authMode === "signup" && !name) {
+        showAuthError("Lütfen adını gir.");
+        return;
+      }
+
+      const businessId = getQueryParam("id");
+      const btn = document.getElementById("authSubmitBtn");
+      btn.disabled = true;
+
+      try {
+        if (authMode === "signup") {
+          const cred = await firebaseAuth.createUserWithEmailAndPassword(email, password);
+          await firestoreDb.collection("customerAccounts").doc(cred.user.uid).set({
+            email,
+            name,
+            businessId,
+            approved: false,
+            createdAt: new Date().toISOString()
+          });
+        } else {
+          await firebaseAuth.signInWithEmailAndPassword(email, password);
+        }
+        // onAuthStateChanged, kalan akışı (onay durumu kontrolü) otomatik yürütecek.
+      } catch (err) {
+        const messages = {
+          "auth/email-already-in-use": "Bu e-posta zaten kayıtlı, giriş yapmayı dene.",
+          "auth/invalid-email": "Geçersiz e-posta adresi.",
+          "auth/weak-password": "Şifre en az 6 karakter olmalı.",
+          "auth/wrong-password": "Şifre hatalı.",
+          "auth/user-not-found": "Bu e-postayla kayıtlı bir hesap bulunamadı.",
+          "auth/invalid-credential": "E-posta ya da şifre hatalı."
+        };
+        showAuthError(messages[err.code] || "Bir hata oluştu, tekrar dene.");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function checkCustomerApproval(user) {
+      const businessId = getQueryParam("id");
+      try {
+        const docSnap = await firestoreDb.collection("customerAccounts").doc(user.uid).get();
+        if (!docSnap.exists || docSnap.data().businessId !== businessId) {
+          // Bu hesap bu işletme için kayıtlı değil.
+          await firebaseAuth.signOut();
+          return;
+        }
+        const approved = !!docSnap.data().approved;
+        document.getElementById("authFormView").style.display = approved ? "none" : "none";
+        if (approved) {
+          document.getElementById("authGate").style.display = "none";
+          document.getElementById("mainAppHeader").style.display = "block";
+          document.getElementById("mainAppContent").style.display = "block";
+          loadCatalog();
+        } else {
+          document.getElementById("authGate").style.display = "flex";
+          document.getElementById("authPendingView").style.display = "block";
+        }
+      } catch (err) {
+        console.error("Onay durumu kontrol edilemedi:", err);
+      }
+    }
+
+    document.getElementById("authTabLogin").addEventListener("click", () => setAuthMode("login"));
+    document.getElementById("authTabSignup").addEventListener("click", () => setAuthMode("signup"));
+    document.getElementById("authSubmitBtn").addEventListener("click", handleAuthSubmit);
+    document.getElementById("authLogoutBtn").addEventListener("click", () => firebaseAuth.signOut());
+
+    if (typeof firebaseConfig !== "undefined") {
+      firebase.initializeApp(firebaseConfig);
+      firebaseAuth = firebase.auth();
+      firestoreDb = firebase.firestore();
+
+      firebaseAuth.onAuthStateChanged((user) => {
+        document.getElementById("authPendingView").style.display = "none";
+        document.getElementById("authFormView").style.display = "block";
+        if (user) {
+          checkCustomerApproval(user);
+        } else {
+          document.getElementById("authGate").style.display = "flex";
+          document.getElementById("mainAppHeader").style.display = "none";
+          document.getElementById("mainAppContent").style.display = "none";
+        }
+      });
+    } else {
+      showAuthError("Sistem şu an kullanılamıyor, lütfen daha sonra tekrar dene.");
+    }
   </script>
 </body>
 </html>
