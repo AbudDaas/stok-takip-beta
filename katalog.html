@@ -111,6 +111,10 @@
     }
     .product-price { font-size: 14.5px; color: var(--tomato-dark); font-weight: 700; margin: 0; font-variant-numeric: tabular-nums; }
     .product-unit { font-size: 11px; color: var(--ink-soft); font-weight: 500; }
+    .out-of-stock-badge {
+      display: inline-block; font-size: 9.5px; font-weight: 700; color: #fff;
+      background: var(--ink-soft); padding: 1px 6px; border-radius: 8px; margin-left: 4px; vertical-align: middle;
+    }
 
     .qty-stepper { display: flex; align-items: center; gap: 6px; margin-top: auto; }
     .qty-stepper button {
@@ -478,25 +482,29 @@
           const unitLabel = p.unit === "kg" ? "kg" : "adet";
           const qty = cart[p.name] ? cart[p.name].qty : 0;
           const visual = getCategoryVisual(p.category);
+          const inStock = p.inStock !== false;
           const visualHtml = p.image
-            ? `<div class="product-visual" style="background:${visual.color};padding:0;"><img src="${escapeHtml(p.image)}" alt="" style="width:100%;height:100%;object-fit:cover;" /></div>`
-            : `<div class="product-visual" style="background:${visual.color};"><i class="fa-solid ${visual.icon}" aria-hidden="true"></i></div>`;
+            ? `<div class="product-visual" style="background:${visual.color};padding:0;${inStock ? "" : "opacity:0.45;"}"><img src="${escapeHtml(p.image)}" alt="" style="width:100%;height:100%;object-fit:cover;" /></div>`
+            : `<div class="product-visual" style="background:${visual.color};${inStock ? "" : "opacity:0.45;"}"><i class="fa-solid ${visual.icon}" aria-hidden="true"></i></div>`;
           const isDiscounted = p.catalogDiscount && p.discountedPrice;
           const effectivePrice = isDiscounted ? p.discountedPrice : p.price;
           const priceHtml = isDiscounted
             ? `<p class="product-price"><span class="highlight-price-old">${formatTL(p.price)}</span> ${formatTL(p.discountedPrice)}<span class="product-unit"> / ${unitLabel}</span></p>`
             : `<p class="product-price">${formatTL(p.price)}<span class="product-unit"> / ${unitLabel}</span></p>`;
+          const stockBadge = inStock ? "" : '<span class="out-of-stock-badge">Tükendi</span>';
+          const stepperHtml = inStock
+            ? `<div class="qty-stepper" data-name="${escapeHtml(p.name)}" data-price="${effectivePrice}" data-unit="${p.unit}">
+                  ${qty > 0 ? `<button class="minus-btn">−</button><span>${qty}</span>` : ""}
+                  <button class="add-btn">${qty > 0 ? "+" : "Ekle"}</button>
+                </div>`
+            : `<button class="add-btn" disabled style="opacity:0.5;cursor:not-allowed;">Tükendi</button>`;
           html += `
             <div class="product-card">
               ${visualHtml}
               <div class="product-body">
-                <p class="product-name">${escapeHtml(p.name)}</p>
+                <p class="product-name">${escapeHtml(p.name)} ${stockBadge}</p>
                 ${priceHtml}
-                <div class="qty-stepper" data-name="${escapeHtml(p.name)}" data-price="${effectivePrice}" data-unit="${p.unit}">
-                  ${qty > 0 ? `<button class="minus-btn">−</button><span>${qty}</span>` : ""}
-                  <button class="add-btn">${qty > 0 ? "+" : "Ekle"}</button>
-
-                </div>
+                ${stepperHtml}
               </div>
             </div>`;
         });
@@ -564,12 +572,34 @@
             <div class="cart-line-row">
               <div>
                 <div class="cart-line-name">${escapeHtml(name)}</div>
-                <div class="cart-line-meta">${item.qty} ${unitLabel} × ${formatTL(item.price)}</div>
+                <div class="cart-line-meta">${formatTL(item.price)} / ${unitLabel}</div>
               </div>
-              <div class="cart-line-total">${formatTL(item.qty * item.price)}</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="qty-stepper">
+                  <button class="minus-btn cart-line-minus" data-name="${escapeHtml(name)}" data-price="${item.price}" data-unit="${item.unit}">−</button>
+                  <span>${item.qty}</span>
+                  <button class="add-btn cart-line-plus" data-name="${escapeHtml(name)}" data-price="${item.price}" data-unit="${item.unit}">+</button>
+                </div>
+                <div class="cart-line-total">${formatTL(item.qty * item.price)}</div>
+              </div>
             </div>`;
         })
         .join("");
+
+      listEl.querySelectorAll(".cart-line-minus").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          changeCartQty(btn.dataset.name, Number(btn.dataset.price), btn.dataset.unit, -1);
+          renderCartLines();
+          updateFeeSummary();
+        });
+      });
+      listEl.querySelectorAll(".cart-line-plus").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          changeCartQty(btn.dataset.name, Number(btn.dataset.price), btn.dataset.unit, 1);
+          renderCartLines();
+          updateFeeSummary();
+        });
+      });
     }
 
     function chooseDelivery(mode) {

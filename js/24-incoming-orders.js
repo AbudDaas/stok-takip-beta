@@ -118,6 +118,17 @@ export function markOrderComplete(orderId) {
   logAudit("Sipariş tamamlandı olarak işaretlendi", order.customerName);
   save();
   renderIncomingOrders();
+
+  // Müşteriye siparişinin hazır/tamamlandığını WhatsApp'tan bildir.
+  const shouldNotify = confirm(state.t("notifyCustomerConfirm").replace("{name}", order.customerName));
+  if (shouldNotify) {
+    const cleanPhone = order.customerPhone.replace(/[^\d]/g, "");
+    const message =
+      order.deliveryMode === "courier"
+        ? state.t("notifyCustomerCourierMsg")
+        : state.t("notifyCustomerPickupMsg");
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+  }
 }
 
 export function deleteIncomingOrder(orderId) {
