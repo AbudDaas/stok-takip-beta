@@ -2,6 +2,7 @@ import { state } from './00-state.js';
 import { locale, save } from './01-firebase-core.js';
 import { escapeHtml, formatQty, formatTL, genId, showPrompt, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
+import { recordStockMovement } from './25-stock-movements.js';
 import { attemptSendToFiscalProvider } from './04-fiscal.js';
 import { adjustQty, findProductByCaseScan, findProductByScan, getDisplayName, parseScaleBarcode, updateOutOfStockTracking } from './05-products.js';
 import { measurePerf } from './22-perf-logger.js';
@@ -179,8 +180,11 @@ function handleShelfTransferScan(decodedText) {
         showToast(state.t("warehouseNotEnough"), "error");
         return;
       }
+      const shelfBefore = Number(p.qty);
       p.warehouseQty = available - amount;
-      p.qty = Number(p.qty) + amount;
+      p.qty = shelfBefore + amount;
+      recordStockMovement({ product: p, type: "transfer_to_shelf", location: "depo", before: available, after: p.warehouseQty });
+      recordStockMovement({ product: p, type: "transfer_to_shelf", location: "raf", before: shelfBefore, after: p.qty });
       updateOutOfStockTracking(p);
       logAudit("Rafa aktarıldı (QR ile)", `${p.name}: ${amount}`);
       save();
@@ -704,16 +708,19 @@ function completeSaleImpl() {
     });
     const profit = total - totalCost;
 
+    const saleId = genId();
     state.cart.forEach((item) => {
       const p = state.products.find((x) => x.id === item.productId);
       if (p) {
+        const qtyBefore = p.qty;
         p.qty = Math.max(0, p.qty - item.qty);
+        recordStockMovement({ product: p, type: "sale", before: qtyBefore, after: p.qty, requested: -item.qty, ref: saleId });
         updateOutOfStockTracking(p);
       }
     });
 
     const newSale = {
-      id: genId(),
+      id: saleId,
       timestamp: new Date().toISOString(),
       items: saleItems,
       subtotal,

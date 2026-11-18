@@ -3,6 +3,7 @@ import { save } from './01-firebase-core.js';
 import { formatQty, formatTL, genId, isBulkScanConfigured, mkProduct, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
 import { findProductByFuzzyName } from './05-products.js';
+import { recordStockMovement } from './25-stock-movements.js';
 import { getCustomerDebt } from './06-veresiye.js';
 import { addToCart, calcLineTotal, clearCart, completeSale, renderCart } from './07-kasa-checkout.js';
 import { callGeminiWithRetry } from './16-bulk-scan-ai.js';
@@ -326,7 +327,9 @@ export function handleVoiceCommandAction(parsed) {
         return;
       }
       showVoiceCommandConfirm(`${state.t("voiceConfirmAddProduct")}: ${name} (${formatTL(price)})`, () => {
-        state.products.push(mkProduct(name, params.category || state.t("categoryOtherDefault"), Number(params.qty) || 0, 5, price, "", "adet", 0));
+        const voiceProduct = mkProduct(name, params.category || state.t("categoryOtherDefault"), Number(params.qty) || 0, 5, price, "", "adet", 0);
+        state.products.push(voiceProduct);
+        recordStockMovement({ product: voiceProduct, type: "initial", before: 0, after: voiceProduct.qty });
         logAudit("Sesli komutla ürün eklendi", name);
         save();
         renderAll();

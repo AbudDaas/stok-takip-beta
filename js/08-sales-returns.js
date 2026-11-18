@@ -2,6 +2,7 @@ import { state } from './00-state.js';
 import { locale, save } from './01-firebase-core.js';
 import { escapeHtml, formatTL, genId, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
+import { recordStockMovement } from './25-stock-movements.js';
 import { renderAll } from './20-navigation.js';
 
 export function getReturnedQtyForItem(saleId, itemName) {
@@ -59,7 +60,11 @@ export function confirmReturn() {
       totalRefund += qty * item.price;
 
       const p = state.products.find((x) => x.name === item.name);
-      if (p) p.qty = Math.round((p.qty + qty) * 1000) / 1000;
+      if (p) {
+        const qtyBefore = p.qty;
+        p.qty = Math.round((p.qty + qty) * 1000) / 1000;
+        recordStockMovement({ product: p, type: "return", before: qtyBefore, after: p.qty, ref: sale.id });
+      }
     });
 
     if (!returnItems.length) {
@@ -90,7 +95,11 @@ export function cancelSale(saleId) {
     }
     sale.items.forEach((item) => {
       const p = state.products.find((x) => x.name === item.name);
-      if (p) p.qty += item.qty;
+      if (p) {
+        const qtyBefore = p.qty;
+        p.qty += item.qty;
+        recordStockMovement({ product: p, type: "sale_cancel", before: qtyBefore, after: p.qty, ref: sale.id });
+      }
     });
     state.sales = state.sales.filter((s) => s.id !== saleId);
     logAudit("Satış iptal edildi", formatTL(sale.total));

@@ -50,8 +50,12 @@ export function applyAccountTypeUI() {
     if (branchesBtn) branchesBtn.style.display = "none";
   }
 
+export function getActorName() {
+    return state.currentStaff ? `${state.currentStaff.name} (${state.currentStaff.role === "manager" ? state.t("staffRoleManager") : state.t("staffRoleCashier")})` : (state.currentUser && state.currentUser.email) || "?";
+  }
+
 export function logAudit(action, details) {
-    const actorName = state.currentStaff ? `${state.currentStaff.name} (${state.currentStaff.role === "manager" ? state.t("staffRoleManager") : state.t("staffRoleCashier")})` : (state.currentUser && state.currentUser.email) || "?";
+    const actorName = getActorName();
     state.auditLog.push({
       timestamp: new Date().toISOString(),
       actor: actorName,

@@ -16,14 +16,32 @@ import { getBulkDiscountForItem, calcLineTotal } from "../js/07-kasa-checkout.js
 import { getCustomerDebt } from "../js/06-veresiye.js";
 import { getSupplierBalance } from "../js/09-suppliers.js";
 import { isInPeriod } from "../js/08-sales-returns.js";
+import { buildMovement, recordStockMovement, loadStockMovements, renderMovementRows } from "../js/25-stock-movements.js";
 import { measurePerf, logPerfEntry, getPerfLog, summarizePerfLog, clearPerfLog } from "../js/22-perf-logger.js";
 
 let passed = 0;
 let failed = 0;
 
+const pendingTests = [];
 function test(name, fn) {
   try {
-    fn();
+    const result = fn();
+    if (result && typeof result.then === "function") {
+      // async test: sonucu en sonda toplanır
+      pendingTests.push(
+        result.then(
+          () => {
+            console.log("  ✅", name);
+            passed++;
+          },
+          (e) => {
+            console.log("  ❌", name, "-", e.message);
+            failed++;
+          }
+        )
+      );
+      return;
+    }
     console.log("  ✅", name);
     passed++;
   } catch (e) {
@@ -188,6 +206,57 @@ test("logPerfEntry en fazla 200 kayıt tutar (en eskiler düşer)", () => {
   assert.strictEqual(log.length, 200);
   assert.strictEqual(log[0].label, "op10");
 });
+
+console.log("\n📦 25-stock-movements.js — stok hareketleri");
+const mvProduct = { id: "p1", name: "süt" };
+test("buildMovement önce/sonra ve farkı doğru hesaplar", () => {
+  const m = buildMovement({ product: mvProduct, type: "sale", before: 10, after: 3, actor: "Ali", now: "2026-01-01T10:00:00.000Z" });
+  assert.strictEqual(m.delta, -7);
+  assert.strictEqual(m.before, 10);
+  assert.strictEqual(m.after, 3);
+  assert.strictEqual(m.productId, "p1");
+  assert.strictEqual(m.location, "raf");
+  assert.strictEqual(m.actor, "Ali");
+  assert.strictEqual(m.requested, undefined);
+});
+test("buildMovement, stokta olandan fazla satışta istenen miktarı ayrıca saklar", () => {
+  const m = buildMovement({ product: mvProduct, type: "sale", before: 10, after: 0, requested: -12 });
+  assert.strictEqual(m.delta, -10);
+  assert.strictEqual(m.requested, -12);
+});
+test("buildMovement küsuratı 3 ondalığa yuvarlar ve undefined alan bırakmaz", () => {
+  const m = buildMovement({ product: mvProduct, type: "manual_add", before: 0.1, after: 0.3 });
+  assert.strictEqual(m.delta, 0.2);
+  assert.ok(Object.values(m).every((v) => v !== undefined));
+});
+test("buildMovement depo konumunu saklar", () => {
+  const m = buildMovement({ product: mvProduct, type: "warehouse_in", location: "depo", before: 0, after: 5 });
+  assert.strictEqual(m.location, "depo");
+});
+test("recordStockMovement değişim yoksa kayıt oluşturmaz", () => {
+  localStorage.clear();
+  assert.strictEqual(recordStockMovement({ product: mvProduct, type: "count", before: 4, after: 4 }), null);
+});
+test("recordStockMovement buluta bağlı değilken yerel olarak saklar, loadStockMovements ürüne göre okur", async () => {
+  localStorage.clear();
+  state.cloudEnabled = false;
+  recordStockMovement({ product: mvProduct, type: "sale", before: 10, after: 7, ref: "s1" });
+  recordStockMovement({ product: { id: "p2", name: "ekmek" }, type: "sale", before: 5, after: 4 });
+  const { movements, error } = await loadStockMovements("p1");
+  assert.strictEqual(error, null);
+  assert.strictEqual(movements.length, 1);
+  assert.strictEqual(movements[0].ref, "s1");
+  const all = await loadStockMovements(null);
+  assert.strictEqual(all.movements.length, 2);
+});
+test("renderMovementRows özel karakterleri kaçırır (XSS) ve eksik stok uyarısı gösterir", () => {
+  const m = buildMovement({ product: mvProduct, type: "sale", before: 2, after: 0, requested: -5, actor: "<img src=x onerror=alert(1)>" });
+  const html = renderMovementRows([m]);
+  assert.ok(!html.includes("<img"));
+  assert.ok(html.includes("stock-move-warn"));
+});
+
+await Promise.all(pendingTests);
 
 console.log(`\n${passed} test geçti, ${failed} test başarısız.\n`);
 process.exit(failed > 0 ? 1 : 0);

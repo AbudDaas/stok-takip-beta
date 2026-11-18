@@ -20,6 +20,7 @@ import { askAiAdvisor, createOrderFromEngine, printOrderEngineList, renderOrderE
 import { applyFontSize, applyNavPosition, applyScanCooldown, applyScanFps, applySimpleMode, applyTheme, closeBusinessLocationModal, confirmBusinessLocation, copyPublicCatalogLink, downloadBackup, handleLogoUpload, initSettings, openBusinessLocationPicker, resetBrandIdentity, saveBrandIdentity, saveDeliverySettings, saveLoyaltySettings, savePublicCatalogSettings, saveScaleBarcodeSettings, sendFeedback, toggleLoyalty, togglePublicCatalog, toggleScaleBarcodeEnabled } from './18-settings-backup.js';
 import { finishOnboarding, onboardingNext } from './19-onboarding.js';
 import { renderAll, switchTab } from './20-navigation.js';
+import { renderStockHistory } from './25-stock-movements.js';
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});
@@ -105,6 +106,9 @@ document.getElementById("deleteProductBtn").addEventListener("click", () => {
 document.getElementById("printQrBtn").addEventListener("click", printQr);
 document.getElementById("addWarehouseStockBtn").addEventListener("click", addWarehouseStock);
 document.getElementById("transferToShelfBtn").addEventListener("click", transferToShelf);
+document.getElementById("showStockHistoryBtn").addEventListener("click", () => {
+    if (state.activeProductId) renderStockHistory(state.activeProductId);
+  });
 
 document.getElementById("printAllQrBtn").addEventListener("click", printAllQrCodes);
 

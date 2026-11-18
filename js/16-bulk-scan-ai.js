@@ -4,6 +4,7 @@ import { calcSellingPrice, escapeHtml, fileToBase64, formatTL, isBulkScanConfigu
 import { findExistingProductByName, importProductsFromCsv, productAlreadyExists, updateOutOfStockTracking } from './05-products.js';
 import { findBarcodesOnlineForCandidates } from './07-kasa-checkout.js';
 import { cleanOldPriceChanges } from './11-bread-orders.js';
+import { recordStockMovement } from './25-stock-movements.js';
 import { renderAll, switchTab } from './20-navigation.js';
 
 export function callGeminiWithRetry(base64, prompt, maxRetries) {
@@ -526,9 +527,13 @@ export function applyInvoiceScan() {
         const p = state.products.find((x) => x.id === item.matchedProductId);
         if (p) {
           if (destination === "depo") {
-            p.warehouseQty = Math.round(((p.warehouseQty || 0) + item.qty) * 1000) / 1000;
+            const whBefore = p.warehouseQty || 0;
+            p.warehouseQty = Math.round((whBefore + item.qty) * 1000) / 1000;
+            recordStockMovement({ product: p, type: "purchase", location: "depo", before: whBefore, after: p.warehouseQty });
           } else {
+            const qtyBefore = p.qty;
             p.qty = Math.round((p.qty + item.qty) * 1000) / 1000;
+            recordStockMovement({ product: p, type: "purchase", before: qtyBefore, after: p.qty });
             updateOutOfStockTracking(p);
           }
           if (item.barcode && !p.barcode) p.barcode = item.barcode;
@@ -555,6 +560,8 @@ export function applyInvoiceScan() {
         const newProduct = mkProduct(item.name, state.t("categoryOtherDefault"), shelfQty, 5, price, item.barcode || "", item.unit === "kg" ? "kg" : "adet", costPrice);
         if (destination === "depo") newProduct.warehouseQty = item.qty;
         state.products.push(newProduct);
+        if (destination === "depo") recordStockMovement({ product: newProduct, type: "purchase", location: "depo", before: 0, after: item.qty });
+        else recordStockMovement({ product: newProduct, type: "purchase", before: 0, after: newProduct.qty });
       }
       appliedCount++;
     });

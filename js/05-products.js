@@ -2,6 +2,7 @@ import { state } from './00-state.js';
 import { save } from './01-firebase-core.js';
 import { escapeHtml, formatQty, formatTL, genId, getStatus, getStatusLabel, mkProduct, printOrderListAsPdf, showPrompt, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
+import { recordStockMovement } from './25-stock-movements.js';
 import { callGeminiWithRetry } from './16-bulk-scan-ai.js';
 import { renderAll } from './20-navigation.js';
 
@@ -225,6 +226,7 @@ export function addProduct() {
     if (state.pendingCaseBarcodes.length) newProduct.caseBarcodes = [...state.pendingCaseBarcodes];
 
     state.products.push(newProduct);
+    recordStockMovement({ product: newProduct, type: "initial", before: 0, after: newProduct.qty });
     logAudit("Ürün eklendi", `${name} (${qty} adet, ${formatTL(price)})`);
     nameInput.value = "";
     catInput.value = "";
@@ -273,7 +275,9 @@ export function updateOutOfStockTracking(p) {
 export function adjustQty(id, delta) {
     const p = state.products.find((x) => x.id === id);
     if (!p) return;
+    const qtyBefore = p.qty;
     p.qty = Math.max(0, Math.round((p.qty + delta) * 1000) / 1000);
+    recordStockMovement({ product: p, type: delta > 0 ? "manual_add" : "manual_remove", before: qtyBefore, after: p.qty, requested: delta });
     updateOutOfStockTracking(p);
     logAudit("Stok güncellendi", `${p.name}: ${delta > 0 ? "+" : ""}${delta} → ${p.qty}`);
     save();
@@ -291,6 +295,7 @@ export function setQtyManually(id, newQty) {
     }
     const oldQty = p.qty;
     p.qty = Math.round(newQty * 1000) / 1000;
+    recordStockMovement({ product: p, type: "manual_set", before: oldQty, after: p.qty });
     updateOutOfStockTracking(p);
     logAudit("Stok elle güncellendi", `${p.name}: ${oldQty} → ${p.qty}`);
     save();
@@ -395,7 +400,9 @@ export function applyPhysicalCount() {
       const newQty = Number(input.value);
       if (isNaN(newQty) || newQty === p.qty) return;
       changeDetails.push(`${p.name}: ${p.qty} → ${newQty}`);
+      const countedBefore = p.qty;
       p.qty = newQty;
+      recordStockMovement({ product: p, type: "count", before: countedBefore, after: newQty });
       updateOutOfStockTracking(p);
       changedCount++;
     });
@@ -415,7 +422,9 @@ export function applyPhysicalCount() {
 
 export function resetAll() {
     state.products.forEach((p) => {
+      const resetBefore = p.qty;
       p.qty = Math.max(p.min, 1);
+      recordStockMovement({ product: p, type: "reset", before: resetBefore, after: p.qty });
     });
     save();
     renderAll();
@@ -593,6 +602,7 @@ export function openModal(id) {
     renderExtraBarcodesList();
     renderCaseBarcodesList();
     updateModalContent(p);
+    clearStockHistoryView();
     document.getElementById("detailModal").style.display = "flex";
     renderQrCode(p.id);
   }
@@ -711,9 +721,17 @@ export function updateModalContent(p) {
     if (warehouseEl) warehouseEl.textContent = formatQty({ unit: p.unit, qty: p.warehouseQty || 0 });
   }
 
+function clearStockHistoryView() {
+    const listEl = document.getElementById("stockHistoryList");
+    const msgEl = document.getElementById("stockHistoryMsg");
+    if (listEl) listEl.innerHTML = "";
+    if (msgEl) msgEl.textContent = "";
+  }
+
 export function closeModal() {
     document.getElementById("detailModal").style.display = "none";
     state.activeProductId = null;
+    clearStockHistoryView();
   }
 
 export function addWarehouseStock() {
@@ -727,7 +745,9 @@ export function addWarehouseStock() {
         showToast(state.t("alertInvalidAmount"), "error");
         return;
       }
-      p.warehouseQty = (p.warehouseQty || 0) + amount;
+      const whBefore = p.warehouseQty || 0;
+      p.warehouseQty = whBefore + amount;
+      recordStockMovement({ product: p, type: "warehouse_in", location: "depo", before: whBefore, after: p.warehouseQty });
       logAudit("Depo stoku eklendi", `${p.name}: +${amount}`);
       save();
       updateModalContent(p);
@@ -754,8 +774,11 @@ export function transferToShelf() {
         showToast(state.t("warehouseNotEnough"), "error");
         return;
       }
+      const shelfBefore = Number(p.qty);
       p.warehouseQty = available - amount;
-      p.qty = Number(p.qty) + amount;
+      p.qty = shelfBefore + amount;
+      recordStockMovement({ product: p, type: "transfer_to_shelf", location: "depo", before: available, after: p.warehouseQty });
+      recordStockMovement({ product: p, type: "transfer_to_shelf", location: "raf", before: shelfBefore, after: p.qty });
       updateOutOfStockTracking(p);
       logAudit("Rafa aktarıldı", `${p.name}: ${amount}`);
       save();
@@ -991,7 +1014,9 @@ export function importProductsFromRows(rows) {
       const qty = Number(cols[2]) || 0;
       const price = Number(cols[3]) || 0;
       if (productAlreadyExists(name)) return;
-      state.products.push(mkProduct(name, category, qty, 5, price, "", "adet", 0));
+      const csvProduct = mkProduct(name, category, qty, 5, price, "", "adet", 0);
+      state.products.push(csvProduct);
+      recordStockMovement({ product: csvProduct, type: "initial", before: 0, after: csvProduct.qty, note: "CSV" });
       addedCount++;
     });
 

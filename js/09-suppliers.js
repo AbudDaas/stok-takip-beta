@@ -2,6 +2,7 @@ import { state } from './00-state.js';
 import { locale, save } from './01-firebase-core.js';
 import { escapeHtml, formatTL, genId, printOrderListAsPdf, showPrompt, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
+import { recordStockMovement } from './25-stock-movements.js';
 import { calcOrderSuggestions } from './17-ai-panel.js';
 
 export function getSupplierBalance(supplierId) {
@@ -321,7 +322,9 @@ export function submitSupplierReturn() {
     const p = state.products.find((x) => x.id === productId);
     if (!p) return;
 
+    const qtyBefore = p.qty;
     p.qty = Math.max(0, Math.round((p.qty - qty) * 1000) / 1000);
+    recordStockMovement({ product: p, type: "supplier_return", before: qtyBefore, after: p.qty, requested: -qty, ref: state.activeSupplierId });
 
     state.supplierTransactions.push({
       id: genId(),
