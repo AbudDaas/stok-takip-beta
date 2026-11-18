@@ -3,6 +3,7 @@ import { locale, save } from './01-firebase-core.js';
 import { escapeHtml, formatQty, formatTL, genId, showPrompt, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
+import { latestRate, usdEquivalentText } from './27-currency.js';
 import { attemptSendToFiscalProvider } from './04-fiscal.js';
 import { adjustQty, findProductByCaseScan, findProductByScan, getDisplayName, parseScaleBarcode, updateOutOfStockTracking } from './05-products.js';
 import { measurePerf } from './22-perf-logger.js';
@@ -610,6 +611,8 @@ export function renderCart() {
 
     document.getElementById("cartSubtotal").textContent = formatTL(subtotal);
     document.getElementById("cartTotal").textContent = formatTL(total);
+    const usdEl = document.getElementById("cartTotalUsd");
+    if (usdEl) usdEl.textContent = usdEquivalentText(total);
   }
 
 export function setPaymentType(type) {
@@ -704,7 +707,7 @@ function completeSaleImpl() {
       const costPrice = p ? p.costPrice || 0 : 0;
       totalCost += costPrice * c.qty;
       const effectivePrice = c.qty > 0 ? calcLineTotal(c) / c.qty : c.price;
-      return { name: c.name, qty: c.qty, price: effectivePrice, unit: c.unit || "adet", costPrice };
+      return { productId: c.productId, name: c.name, qty: c.qty, price: effectivePrice, unit: c.unit || "adet", costPrice };
     });
     const profit = total - totalCost;
 
@@ -730,7 +733,9 @@ function completeSaleImpl() {
       profit,
       paymentType: state.selectedPaymentType,
       customerId,
-      customerName
+      customerName,
+      currency: state.currency,
+      usdRate: latestRate(state.exchangeRates) || null
     };
     state.sales.push(newSale);
     if (customerId) earnLoyaltyPoints(customerId, total);

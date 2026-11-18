@@ -73,12 +73,23 @@ export function addSupplier() {
     showToast(state.t("supplierAdded"), "success");
   }
 
+export function saveSupplierLeadTime() {
+    const s = state.suppliers.find((x) => x.id === state.activeSupplierId);
+    if (!s) return;
+    const days = Math.round(Number(document.getElementById("supplierLeadTime").value));
+    s.leadTimeDays = Number.isFinite(days) && days > 0 ? Math.min(days, 90) : 0;
+    save();
+    renderSupplierOrderList(s.id);
+    showToast(state.t("supplierLeadTimeSaved"), "success");
+  }
+
 export function openSupplierModal(supplierId) {
     const s = state.suppliers.find((x) => x.id === supplierId);
     if (!s) return;
     state.activeSupplierId = supplierId;
     document.getElementById("supplierModalName").textContent = s.name;
     document.getElementById("supplierModalDebt").textContent = formatTL(getSupplierBalance(supplierId));
+    document.getElementById("supplierLeadTime").value = s.leadTimeDays || "";
     renderSupplierHistory(supplierId);
     renderSupplierOrderList(supplierId);
     document.getElementById("supplierProductSearch").value = "";
@@ -126,7 +137,7 @@ export function renderSupplierOrderList(supplierId) {
             </div>
             <div class="order-engine-suggestion">
               <span class="order-engine-qty">${s.suggestedOrder}</span>
-              <span class="order-engine-unit">${s.unit === "kg" ? state.t("unitKgShort") : state.t("unitAdetShort")}</span>
+              <span class="order-engine-unit">${s.unit === "kg" ? state.t("unitKgShort") : state.t("unitAdetShort")}${s.cases ? ` (${s.cases} ${state.t("caseWord")})` : ""}</span>
             </div>
           </div>`;
       })

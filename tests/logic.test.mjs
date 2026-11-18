@@ -11,11 +11,15 @@
 import assert from "assert";
 import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
-import { calcSellingPrice, formatQty, formatTL } from "../js/02-utils.js";
+import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
+import { ORDER_DEFAULTS, buildSalesIndex, findSlowMovers, planOrder, roundOrderQty, soldQuantities, velocityFrom } from "../js/28-order-planning.js";
+import { calcOrderSuggestions } from "../js/17-ai-panel.js";
+import { addRateEntry, latestRate, localToUsd, sanitizeRate, usdToLocal, usdEquivalentText } from "../js/27-currency.js";
 import { getBulkDiscountForItem, calcLineTotal } from "../js/07-kasa-checkout.js";
 import { getCustomerDebt } from "../js/06-veresiye.js";
 import { getSupplierBalance } from "../js/09-suppliers.js";
 import { isInPeriod } from "../js/08-sales-returns.js";
+import { caseCostToUnitCost, casesToUnits, getCaseSize } from "../js/26-case-units.js";
 import { buildMovement, recordStockMovement, loadStockMovements, renderMovementRows } from "../js/25-stock-movements.js";
 import { measurePerf, logPerfEntry, getPerfLog, summarizePerfLog, clearPerfLog } from "../js/22-perf-logger.js";
 
@@ -257,6 +261,169 @@ test("renderMovementRows özel karakterleri kaçırır (XSS) ve eksik stok uyar�
 });
 
 await Promise.all(pendingTests);
+
+console.log("\n📦 26-case-units.js — koli / adet dönüşümü");
+test("getCaseSize önce elle girilen koli içi adedi kullanır", () => {
+  assert.strictEqual(getCaseSize({ caseSize: 24, caseBarcodes: [{ barcode: "1", qty: 12 }] }), 24);
+});
+test("getCaseSize tanım yoksa ilk koli barkodunun adedini kullanır", () => {
+  assert.strictEqual(getCaseSize({ caseBarcodes: [{ barcode: "1", qty: 12 }] }), 12);
+  assert.strictEqual(getCaseSize({ caseQty: 6 }), 6);
+});
+test("getCaseSize tanım yoksa veya geçersizse 0 döner", () => {
+  assert.strictEqual(getCaseSize({}), 0);
+  assert.strictEqual(getCaseSize(null), 0);
+  assert.strictEqual(getCaseSize({ caseSize: -3 }), 0);
+  assert.strictEqual(getCaseSize({ caseSize: "abc" }), 0);
+});
+test("casesToUnits koliyi adede çevirir", () => {
+  assert.strictEqual(casesToUnits(3, 12), 36);
+  assert.strictEqual(casesToUnits(-1, 12), -12);
+  assert.strictEqual(casesToUnits(2, 0), 0);
+});
+test("caseCostToUnitCost koli fiyatından adet maliyetini hesaplar", () => {
+  assert.strictEqual(caseCostToUnitCost(120, 12), 10);
+  assert.strictEqual(caseCostToUnitCost(100, 12), 8.33);
+  assert.strictEqual(caseCostToUnitCost(0, 12), 0);
+  assert.strictEqual(caseCostToUnitCost(120, 0), 0);
+});
+
+console.log("\n📦 27-currency.js — para birimi ve kur");
+test("formatMoney TRY iki ondalık, SYP sıfır ondalık, USD $ simgesiyle basar", () => {
+  assert.strictEqual(formatMoney(1234.5, "TRY"), "1.234,50 ₺");
+  assert.strictEqual(formatMoney(1234567.4, "SYP"), "1.234.567 ل.س");
+  assert.strictEqual(formatMoney(12.5, "USD"), "12,50 $");
+  assert.strictEqual(formatMoney(5, "XXX"), "5,00 ₺");
+});
+test("formatTL işletmenin seçtiği para birimini kullanır", () => {
+  state.currency = "SYP";
+  assert.strictEqual(formatTL(1500), "1.500 ل.س");
+  state.currency = "TRY";
+  assert.strictEqual(formatTL(1500), "1.500,00 ₺");
+});
+test("sanitizeRate virgülü kabul eder, geçersizi 0 yapar", () => {
+  assert.strictEqual(sanitizeRate("13500,5"), 13500.5);
+  assert.strictEqual(sanitizeRate("abc"), 0);
+  assert.strictEqual(sanitizeRate(-5), 0);
+  assert.strictEqual(sanitizeRate(0), 0);
+});
+test("latestRate tarihe göre en yeni kuru seçer (sıra önemli değil)", () => {
+  const rates = [
+    { id: "a", date: "2026-01-02T00:00:00.000Z", rate: 14000 },
+    { id: "b", date: "2026-01-03T00:00:00.000Z", rate: 14500 },
+    { id: "c", date: "2026-01-01T00:00:00.000Z", rate: 13000 }
+  ];
+  assert.strictEqual(latestRate(rates), 14500);
+  assert.strictEqual(latestRate([]), 0);
+  assert.strictEqual(latestRate(undefined), 0);
+});
+test("localToUsd ve usdToLocal kurla doğru dönüştürür, kur yoksa 0 döner", () => {
+  assert.strictEqual(localToUsd(140000, 14000), 10);
+  assert.strictEqual(usdToLocal(10, 14000), 140000);
+  assert.strictEqual(localToUsd(100, 0), 0);
+});
+test("addRateEntry geçersiz kuru eklemez ve geçmişi 200 kayıtla sınırlar", () => {
+  assert.strictEqual(addRateEntry([], "abc").length, 0);
+  let rates = [];
+  for (let i = 1; i <= 210; i++) rates = addRateEntry(rates, 10000 + i, "2026-01-01T00:00:" + String(i % 60).padStart(2, "0") + "Z");
+  assert.strictEqual(rates.length, 200);
+  assert.strictEqual(rates[199].rate, 10210);
+});
+test("usdEquivalentText yalnızca USD dışı para biriminde ve kur varken metin döner", () => {
+  state.currency = "SYP";
+  state.exchangeRates = [{ id: "x", date: "2026-01-01T00:00:00.000Z", rate: 14000 }];
+  assert.strictEqual(usdEquivalentText(140000), "≈ 10,00 $");
+  assert.strictEqual(usdEquivalentText(0), "");
+  state.currency = "USD";
+  assert.strictEqual(usdEquivalentText(140000), "");
+  state.currency = "SYP";
+  state.exchangeRates = [];
+  assert.strictEqual(usdEquivalentText(140000), "");
+  state.currency = "TRY";
+});
+
+console.log("\n📦 28-order-planning.js — akıllı sipariş planlaması");
+const NOW = new Date("2026-06-30T12:00:00.000Z").getTime();
+const daysAgo = (d) => new Date(NOW - d * 86400000).toISOString();
+test("planOrder: günde 5 adet, teslimat 3 gün → sipariş noktası ve miktar doğru", () => {
+  const plan = planOrder({ stock: 20, avgDaily: 5, leadDays: 3, safetyDays: 2, coverDays: 7, unit: "adet", caseSize: 0 });
+  assert.strictEqual(plan.reorderPoint, 25);
+  assert.strictEqual(plan.targetStock, 60);
+  assert.strictEqual(plan.needsOrder, true);
+  assert.strictEqual(plan.orderQty, 40);
+  assert.strictEqual(plan.daysLeft, 4);
+});
+test("planOrder: stok sipariş noktasının üstündeyse sipariş önermez", () => {
+  const plan = planOrder({ stock: 26, avgDaily: 5, leadDays: 3, safetyDays: 2, coverDays: 7, unit: "adet" });
+  assert.strictEqual(plan.needsOrder, false);
+  assert.strictEqual(plan.orderQty, 0);
+});
+test("planOrder: koli bilgisi varsa miktar koli katına yukarı yuvarlanır", () => {
+  const plan = planOrder({ stock: 20, avgDaily: 5, leadDays: 3, safetyDays: 2, coverDays: 7, unit: "adet", caseSize: 12 });
+  assert.strictEqual(plan.orderQty, 48);
+  assert.strictEqual(plan.cases, 4);
+});
+test("planOrder: satış yoksa sipariş önermez", () => {
+  const plan = planOrder({ stock: 0, avgDaily: 0, leadDays: 3, safetyDays: 2, coverDays: 7, unit: "adet" });
+  assert.strictEqual(plan.needsOrder, false);
+});
+test("roundOrderQty: kg 0.1'e, adet tam sayıya yukarı yuvarlanır", () => {
+  assert.strictEqual(roundOrderQty(2.31, "kg", 0).qty, 2.4);
+  assert.strictEqual(roundOrderQty(2.1, "adet", 0).qty, 3);
+  assert.strictEqual(roundOrderQty(0, "adet", 12).qty, 0);
+});
+test("velocityFrom 7 ve 30 günlük hızı karıştırır, eğilimi hesaplar", () => {
+  const v = velocityFrom(70, 150); // 10/gün son hafta, 5/gün ay → 7,5
+  assert.strictEqual(v.avgDaily, 7.5);
+  assert.strictEqual(v.trend, 2);
+  assert.deepStrictEqual(velocityFrom(0, 0), { avgDaily: 0, trend: null });
+});
+test("buildSalesIndex: 30 günden eski satışı saymaz; ürün kimliği ve ad eşleşir", () => {
+  const sales = [
+    { timestamp: daysAgo(2), items: [{ productId: "p1", name: "süt", qty: 3 }] },
+    { timestamp: daysAgo(10), items: [{ name: "süt", qty: 4 }] },
+    { timestamp: daysAgo(40), items: [{ name: "süt", qty: 99 }] }
+  ];
+  const q = soldQuantities(buildSalesIndex(sales, NOW), { id: "p1", name: "süt" });
+  assert.strictEqual(q.d7, 3);
+  assert.strictEqual(q.d30, 7);
+});
+test("findSlowMovers: stokta olup 30 günde satılmayanları, stok değeri yüksek olan önce döner", () => {
+  const products = [
+    { id: "a", name: "A", qty: 5, costPrice: 10 },
+    { id: "b", name: "B", qty: 2, warehouseQty: 10, costPrice: 20 },
+    { id: "c", name: "C", qty: 0, costPrice: 5 },
+    { id: "d", name: "D", qty: 9, costPrice: 1 }
+  ];
+  const sales = [{ timestamp: daysAgo(1), items: [{ productId: "d", name: "D", qty: 1 }] }];
+  const slow = findSlowMovers(products, buildSalesIndex(sales, NOW));
+  assert.deepStrictEqual(slow.map((x) => x.product.id), ["b", "a"]);
+});
+test("calcOrderSuggestions: depodaki stok sayılır ve tedarikçinin teslimat süresi kullanılır", () => {
+  const realNow = Date.now;
+  Date.now = () => NOW;
+  try {
+    state.suppliers = [{ id: "s1", name: "Toptancı", leadTimeDays: 5 }];
+    state.products = [{ id: "p1", name: "süt", qty: 10, warehouseQty: 30, min: 5, price: 20, unit: "adet", supplierId: "s1", caseBarcodes: [{ barcode: "1", qty: 12 }] }];
+    // son 30 günde 300 adet → ~10/gün; stok 40; sipariş noktası = 10 × (5+2) = 70 → sipariş gerekir
+    state.sales = [{ timestamp: daysAgo(3), items: [{ productId: "p1", name: "süt", qty: 100 }] }, { timestamp: daysAgo(20), items: [{ productId: "p1", name: "süt", qty: 200 }] }];
+    const list = calcOrderSuggestions(() => true);
+    assert.strictEqual(list.length, 1);
+    assert.strictEqual(list[0].leadDays, 5);
+    assert.strictEqual(list[0].suggestedOrder % 12, 0);
+    assert.ok(list[0].cases > 0);
+    // depo stoğu sayılmasaydı (10) daysLeft çok daha az olurdu
+    assert.ok(list[0].daysLeft > 3);
+  } finally {
+    Date.now = realNow;
+    state.suppliers = [];
+    state.products = [];
+    state.sales = [];
+  }
+});
+test("ORDER_DEFAULTS makul varsayılanlar içerir", () => {
+  assert.deepStrictEqual(ORDER_DEFAULTS, { leadDays: 3, safetyDays: 2, coverDays: 7 });
+});
 
 console.log(`\n${passed} test geçti, ${failed} test başarısız.\n`);
 process.exit(failed > 0 ? 1 : 0);

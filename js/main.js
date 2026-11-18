@@ -3,11 +3,11 @@ import { forgotPassword, importLocalBackup, load, logout, registerPeriodicSync, 
 import { showToast } from './02-utils.js';
 import { addStaffMember, enterAsOwner, saveOwnerPin, staffPickerGoBack, submitStaffPickerPin, switchUser } from './03-staff-roles.js';
 import { saveFiscalSettings, toggleFiscalEnabled } from './04-fiscal.js';
-import { addCaseBarcodeEntry, addExtraBarcode, addPendingCaseBarcode, addPendingExtraBarcode, addProduct, addWarehouseStock, adjustQty, applyPhysicalCount, closeModal, closePhysicalCountModal, deleteProduct, handleCsvImportFile, handleEditProductPhotoUpload, handleNewProductPhotoUpload, openPhysicalCountModal, printAllQrCodes, printQr, printSelfSourceList, renderPhysicalCountList, resetAll, saveEdit, setQtyManually, transferToShelf, translateMissingProductNames } from './05-products.js';
+import { adjustCases, addCaseBarcodeEntry, addExtraBarcode, addPendingCaseBarcode, addPendingExtraBarcode, addProduct, addWarehouseStock, adjustQty, applyPhysicalCount, closeModal, closePhysicalCountModal, deleteProduct, handleCsvImportFile, handleEditProductPhotoUpload, handleNewProductPhotoUpload, openPhysicalCountModal, printAllQrCodes, printQr, printSelfSourceList, renderPhysicalCountList, resetAll, saveEdit, setQtyManually, transferToShelf, translateMissingProductNames } from './05-products.js';
 import { addCustomer, closeCustomerModal, deleteCustomer, recordPayment, renderVeresiyeCustomerResults, saveCustomerEdit } from './06-veresiye.js';
 import { checkGiftCardBalance, clearCart, closeQuickBarcodeScan, completeSale, openQuickBarcodeScan, renderCart, renderManualAddResults, setPaymentType, setScanMode, startScan, startScanKasa, stopScan, stopScanKasa } from './07-kasa-checkout.js';
 import { closeReturnModal, confirmReturn, renderSales, submitZReport } from './08-sales-returns.js';
-import { addSuggestedSuppliers, addSupplier, addSupplierDebt, addSupplierPayment, addTemplateBuilderItem, assignSelectedProductsToSupplier, closeSupplierModal, deleteSupplier, printSupplierOrderList, renderSupplierProductPicker, saveOrderTemplate, sendSupplierOrderWhatsApp, submitSupplierReturn } from './09-suppliers.js';
+import { addSuggestedSuppliers, addSupplier, addSupplierDebt, addSupplierPayment, addTemplateBuilderItem, assignSelectedProductsToSupplier, closeSupplierModal, deleteSupplier, printSupplierOrderList, renderSupplierProductPicker, saveOrderTemplate, saveSupplierLeadTime, sendSupplierOrderWhatsApp, submitSupplierReturn } from './09-suppliers.js';
 import { addExpense } from './21-expenses.js';
 import { createGiftCard } from './23-giftcards.js';
 import { addBreadConfig, sendBreadWhatsApp } from './11-bread-orders.js';
@@ -21,6 +21,7 @@ import { applyFontSize, applyNavPosition, applyScanCooldown, applyScanFps, apply
 import { finishOnboarding, onboardingNext } from './19-onboarding.js';
 import { renderAll, switchTab } from './20-navigation.js';
 import { renderStockHistory } from './25-stock-movements.js';
+import { addExchangeRate, saveCurrencySetting } from './27-currency.js';
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});
@@ -91,6 +92,9 @@ document.getElementById("qtyMinusBtn").addEventListener("click", () => {
     const p = state.products.find((x) => x.id === state.activeProductId);
     adjustQty(state.activeProductId, p && p.unit === "kg" ? -0.1 : -1);
   });
+
+document.getElementById("casePlusBtn").addEventListener("click", () => adjustCases(state.activeProductId, 1));
+document.getElementById("caseMinusBtn").addEventListener("click", () => adjustCases(state.activeProductId, -1));
 
 document.getElementById("modalQtyInput").addEventListener("change", (e) => {
     const newQty = parseFloat(String(e.target.value).replace(",", "."));
@@ -358,6 +362,8 @@ document.getElementById("createGiftCardBtn").addEventListener("click", createGif
 document.getElementById("publicCatalogToggle").addEventListener("change", (e) => togglePublicCatalog(e.target.checked));
 document.getElementById("savePublicCatalogBtn").addEventListener("click", savePublicCatalogSettings);
 document.getElementById("copyPublicCatalogLinkBtn").addEventListener("click", copyPublicCatalogLink);
+document.getElementById("saveCurrencyBtn").addEventListener("click", () => saveCurrencySetting(renderAll));
+document.getElementById("addExchangeRateBtn").addEventListener("click", () => addExchangeRate(renderAll));
 document.getElementById("loyaltyToggle").addEventListener("change", (e) => toggleLoyalty(e.target.checked));
 document.getElementById("saveLoyaltySettingsBtn").addEventListener("click", saveLoyaltySettings);
 document.getElementById("scaleBarcodeToggle").addEventListener("change", (e) => toggleScaleBarcodeEnabled(e.target.checked));
@@ -373,6 +379,7 @@ document.getElementById("businessLogoInput").addEventListener("change", (e) => h
 document.getElementById("addSuggestedSuppliersBtn").addEventListener("click", addSuggestedSuppliers);
 
 document.getElementById("closeSupplierModalBtn").addEventListener("click", closeSupplierModal);
+document.getElementById("supplierLeadTimeSaveBtn").addEventListener("click", saveSupplierLeadTime);
 
 document.getElementById("supplierModal").addEventListener("click", (e) => {
     if (e.target.id === "supplierModal") closeSupplierModal();

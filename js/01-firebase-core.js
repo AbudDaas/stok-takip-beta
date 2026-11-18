@@ -123,6 +123,8 @@ export function attachFirestoreListener() {
           state.publicCatalogPhone = data.publicCatalogPhone || "";
           state.businessName = data.businessName || "";
           state.loyaltyEnabled = data.loyaltyEnabled || false;
+          state.currency = data.currency || "TRY";
+          state.exchangeRates = data.exchangeRates || [];
           state.loyaltyEarnRate = data.loyaltyEarnRate || 10;
           state.loyaltyRedeemRate = data.loyaltyRedeemRate || 10;
           state.giftCards = data.giftCards || [];

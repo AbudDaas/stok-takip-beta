@@ -4,6 +4,8 @@ import { escapeHtml, formatTL, getStatus, printOrderListAsPdf, showToast } from 
 import { logAudit } from './03-staff-roles.js';
 import { renderShelfCheckAlert } from './12-push-notifications.js';
 import { callGeminiWithRetry } from './16-bulk-scan-ai.js';
+import { getCaseSize } from './26-case-units.js';
+import { ORDER_DEFAULTS, buildSalesIndex, findSlowMovers, planOrder, roundOrderQty, soldQuantities, velocityFrom } from './28-order-planning.js';
 
 export function renderDailyReportAndHealth() {
     const reportSoldOutEl = document.getElementById("reportSoldOutCount");
@@ -131,59 +133,79 @@ export function renderLostSales() {
   }
 
 export function calcOrderSuggestions(productFilter) {
-    const cutoff = new Date(Date.now() - 14 * 86400000);
-    const recentSales = state.sales.filter((s) => new Date(s.timestamp) >= cutoff);
-
-    const salesByProduct = {};
-    recentSales.forEach((s) => {
-      s.items.forEach((item) => {
-        salesByProduct[item.name] = (salesByProduct[item.name] || 0) + item.qty;
-      });
-    });
+    const index = buildSalesIndex(state.sales);
 
     return state.products
       .filter(productFilter)
       .map((p) => {
-        const totalSold = salesByProduct[p.name] || 0;
-        const avgDaily = totalSold / 14;
+        const sold = soldQuantities(index, p);
+        const { avgDaily, trend } = velocityFrom(sold.d7, sold.d30);
+        const stock = (Number(p.qty) || 0) + (Number(p.warehouseQty) || 0);
+        const supplier = p.supplierId ? state.suppliers.find((x) => x.id === p.supplierId) : null;
+        const leadDays = supplier && Number(supplier.leadTimeDays) > 0 ? Number(supplier.leadTimeDays) : ORDER_DEFAULTS.leadDays;
+        const base = {
+          productId: p.id,
+          name: p.name,
+          avgDaily,
+          trend,
+          leadDays,
+          unit: p.unit,
+          supplierId: p.supplierId || null,
+          needsAlternativeSource: !!p.needsAlternativeSource
+        };
 
         if (avgDaily <= 0) {
-          // Son 14 günde hiç satılmamış (belki zaten stokta yoktu, satılamadı).
+          // Son 30 günde hiç satılmamış (belki zaten stokta yoktu, satılamadı).
           // Satış hızına dayalı öneri yapamayız ama basit stok durumuna göre
           // yine de listeye eklemeliyiz — yoksa "eksik" bir ürün, sırf yakın
           // zamanda satılmadı diye bu listeden tamamen kaybolur.
           const status = getStatus(p);
           if (status === "yeterli") return null;
-          const suggestedOrder = Math.max(1, (p.min || 5) * 2 - p.qty);
-          return {
-            productId: p.id,
-            name: p.name,
-            daysLeft: 0,
-            avgDaily: 0,
-            suggestedOrder,
-            unit: p.unit,
-            supplierId: p.supplierId || null,
-            needsAlternativeSource: !!p.needsAlternativeSource
-          };
+          const rounded = roundOrderQty(Math.max(1, (p.min || 5) * 2 - stock), p.unit, getCaseSize(p));
+          return { ...base, daysLeft: 0, suggestedOrder: rounded.qty, cases: rounded.cases };
         }
 
-        const daysLeft = p.qty / avgDaily;
-        if (daysLeft > 7) return null;
-        const suggestedOrder = Math.max(0, Math.ceil(avgDaily * 14 - p.qty));
-        if (suggestedOrder <= 0) return null;
-        return {
-          productId: p.id,
-          name: p.name,
-          daysLeft,
+        const plan = planOrder({
+          stock,
           avgDaily,
-          suggestedOrder,
+          leadDays,
+          safetyDays: ORDER_DEFAULTS.safetyDays,
+          coverDays: ORDER_DEFAULTS.coverDays,
           unit: p.unit,
-          supplierId: p.supplierId || null,
-          needsAlternativeSource: !!p.needsAlternativeSource
-        };
+          caseSize: getCaseSize(p)
+        });
+        if (!plan.needsOrder || plan.orderQty <= 0) return null;
+        return { ...base, daysLeft: plan.daysLeft, suggestedOrder: plan.orderQty, cases: plan.cases };
       })
       .filter(Boolean)
       .sort((a, b) => a.daysLeft - b.daysLeft);
+  }
+
+// Satış eğilimi: son hafta, aylık ortalamadan %25'ten fazla farklıysa ok göster.
+export function trendLabel(s) {
+    if (s.trend == null) return "";
+    if (s.trend >= 1.25) return ` · ↑ ${state.t("orderTrendUp")}`;
+    if (s.trend <= 0.75) return ` · ↓ ${state.t("orderTrendDown")}`;
+    return "";
+  }
+
+export function renderSlowMovers() {
+    const listEl = document.getElementById("slowMoversList");
+    const emptyEl = document.getElementById("slowMoversEmptyState");
+    if (!listEl) return;
+    const slow = findSlowMovers(state.products, buildSalesIndex(state.sales)).slice(0, 20);
+    emptyEl.style.display = slow.length ? "none" : "block";
+    listEl.innerHTML = slow
+      .map(
+        (x) => `
+          <div class="order-engine-row">
+            <div class="order-engine-info">
+              <p class="order-engine-name">${escapeHtml(x.product.name)}</p>
+              <p class="order-engine-meta">${state.t("slowMoversStock")}: ${x.stock}${x.stockValue > 0 ? " · " + formatTL(x.stockValue) : ""}</p>
+            </div>
+          </div>`
+      )
+      .join("");
   }
 
 export function renderOrderEngine() {
@@ -192,6 +214,7 @@ export function renderOrderEngine() {
     if (!listEl) return;
 
     renderOrderEngineFilterSelect();
+    renderSlowMovers();
     const filterValue = document.getElementById("orderEngineFilterSelect").value;
 
     const allSuggestions = calcOrderSuggestions(() => true);
@@ -218,12 +241,12 @@ export function renderOrderEngine() {
             <input type="checkbox" class="order-engine-check" data-index="${i}" checked />
             <div class="order-engine-info">
               <p class="order-engine-name">${escapeHtml(s.name)}</p>
-              <p class="order-engine-meta">${state.t("orderEngineRunsOut")}: ${daysLabel}</p>
+              <p class="order-engine-meta">${state.t("orderEngineRunsOut")}: ${daysLabel}${trendLabel(s)}</p>
               ${altBadgeHtml}
             </div>
             <div class="order-engine-suggestion">
               <span class="order-engine-qty">${s.suggestedOrder}</span>
-              <span class="order-engine-unit">${s.unit === "kg" ? state.t("unitKgShort") : state.t("unitAdetShort")}</span>
+              <span class="order-engine-unit">${s.unit === "kg" ? state.t("unitKgShort") : state.t("unitAdetShort")}${s.cases ? ` (${s.cases} ${state.t("caseWord")})` : ""}</span>
             </div>
             ${transferBtnHtml}
           </label>`;
@@ -280,7 +303,7 @@ export function createOrderFromEngine() {
       return;
     }
 
-    const lines = selected.map((s) => `- ${s.name}: ${s.suggestedOrder} ${s.unit === "kg" ? state.t("unitKgShort") : state.t("unitAdetShort")}`);
+    const lines = selected.map((s) => `- ${s.name}: ${s.suggestedOrder} ${s.unit === "kg" ? state.t("unitKgShort") : state.t("unitAdetShort")}${s.cases ? ` (${s.cases} ${state.t("caseWord")})` : ""}`);
     const message = `${state.t("orderEngineMessageTitle")}\n\n${lines.join("\n")}`;
 
     const supplierId = document.getElementById("orderEngineSupplierSelect").value;

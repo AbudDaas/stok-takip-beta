@@ -393,6 +393,7 @@
           <span data-i18n="totalLabel">Toplam</span>
           <span id="cartTotal">0,00 ₺</span>
         </div>
+        <p id="cartTotalUsd" class="card-subtitle" style="text-align:end;margin:0;" aria-live="polite"></p>
 
         <div class="payment-type-row">
           <button id="payNakitBtn" class="payment-type-btn active" data-type="nakit">
@@ -741,6 +742,11 @@
             <button id="supplierAddDebtBtn" class="btn btn-sm"><i class="fa-solid fa-plus" aria-hidden="true"></i> <span data-i18n="supplierAddDebtBtn">Fatura/Borç Ekle</span></button>
             <button id="supplierAddPaymentBtn" class="btn btn-sm btn-primary"><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> <span data-i18n="supplierAddPaymentBtn">Ödeme Yap</span></button>
           </div>
+          <label class="field-label" for="supplierLeadTime" data-i18n="supplierLeadTimeLabel">Teslimat süresi (gün)</label>
+          <input id="supplierLeadTime" type="number" min="0" max="90" step="1" data-i18n-placeholder="supplierLeadTimePh" placeholder="Örn. 3" />
+          <button id="supplierLeadTimeSaveBtn" class="btn btn-block" style="margin-top:8px;">
+            <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> <span data-i18n="saveBtn">Kaydet</span>
+          </button>
           <p class="card-title" style="margin-top:14px;" data-i18n="supplierHistoryTitle">Hareket Geçmişi</p>
           <div id="supplierHistoryList" class="list"></div>
 
@@ -871,6 +877,13 @@
         <button id="orderEnginePrintBtn" class="btn btn-block" style="margin-top:8px;">
           <i class="fa-solid fa-print" aria-hidden="true"></i> <span data-i18n="printOrderListBtn">Yazdır / PDF Kaydet</span>
         </button>
+      </div>
+
+      <div class="card">
+        <p class="card-title" data-i18n="slowMoversTitle">🐌 Satılmayan Ürünler</p>
+        <p class="card-subtitle" data-i18n="slowMoversSubtitle">Stokta duran ama son 30 günde hiç satılmamış ürünler. Para burada bekliyor.</p>
+        <div id="slowMoversList" class="list"></div>
+        <p id="slowMoversEmptyState" class="empty-state" data-i18n="slowMoversEmpty">Satılmayan ürün yok.</p>
       </div>
 
       <div class="card">
@@ -1157,6 +1170,30 @@
       </div>
 
       <div class="card">
+        <p class="card-title" data-i18n="currencyTitle">💱 Para Birimi ve Kur</p>
+        <p class="card-subtitle" data-i18n="currencySubtitle">Tutarların hangi para biriminde gösterileceğini seç. Bu seçim ürün fiyatlarını dönüştürmez, sadece simgeyi ve ondalık biçimini değiştirir.</p>
+        <label class="field-label" for="currencySelect" data-i18n="currencyLabel">İşletme para birimi</label>
+        <select id="currencySelect">
+          <option value="TRY">₺ — Türk Lirası (TRY)</option>
+          <option value="SYP">ل.س — Suriye Lirası (SYP)</option>
+          <option value="USD">$ — ABD Doları (USD)</option>
+        </select>
+        <button id="saveCurrencyBtn" class="btn btn-primary btn-block" style="margin-top:8px;">
+          <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> <span data-i18n="saveBtn">Kaydet</span>
+        </button>
+        <div id="exchangeRateBox" style="margin-top:12px;">
+          <p class="card-title" data-i18n="exchangeRateTitle">Dolar kuru</p>
+          <p id="exchangeRateCurrent" class="stat-value"></p>
+          <label class="field-label" for="exchangeRateInput" data-i18n="exchangeRateLabel">Yeni kur: 1 USD kaç birim?</label>
+          <input id="exchangeRateInput" type="text" inputmode="decimal" />
+          <button id="addExchangeRateBtn" class="btn btn-block" style="margin-top:8px;">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i> <span data-i18n="exchangeRateAddBtn">Kuru kaydet</span>
+          </button>
+          <div id="exchangeRateList" class="list"></div>
+        </div>
+      </div>
+
+      <div class="card">
         <p class="card-title" data-i18n="settingsBackupTitle">Veri Yedeği</p>
         <p class="card-subtitle" data-i18n="settingsBackupSubtitle">Tüm ürün, satış ve müşteri verini bir dosya olarak indir, güvenli bir yerde sakla.</p>
         <button id="downloadBackupBtn" class="btn btn-block">
@@ -1393,6 +1430,10 @@
           <input id="modalQtyInput" class="qty-display qty-input" type="text" inputmode="decimal" />
           <button id="qtyPlusBtn" class="qty-btn" aria-label="Stok arttır"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
         </div>
+        <div id="caseQtyRow" class="form-row two-col" style="display:none;">
+          <button id="caseMinusBtn" class="btn btn-block"><span id="caseMinusLabel"></span></button>
+          <button id="casePlusBtn" class="btn btn-block"><span id="casePlusLabel"></span></button>
+        </div>
         <p id="modalStatus" class="status-pill"></p>
 
         <div class="modal-section warehouse-section">
@@ -1451,6 +1492,11 @@
           <input id="editPrice" type="number" min="0" step="0.01" />
           <label class="field-label" data-i18n="costPriceLabel">Alış fiyatı (₺, opsiyonel)</label>
           <input id="editCostPrice" type="number" min="0" step="0.01" />
+          <label class="field-label" data-i18n="caseSizeLabel">Koli içi adet (opsiyonel)</label>
+          <input id="editCaseSize" type="number" min="0" step="1" data-i18n-placeholder="caseSizePh" placeholder="Örn. 12" />
+          <label class="field-label" data-i18n="caseCostLabel">Koli alış fiyatı (opsiyonel)</label>
+          <input id="editCaseCost" type="number" min="0" step="0.01" />
+          <p class="card-subtitle" data-i18n="caseCostHint" style="margin-top:0;">Koli fiyatı ve koli içi adet girersen adet alış fiyatı otomatik hesaplanır.</p>
           <label class="field-label" data-i18n="unitLabel">Satış birimi</label>
           <select id="editUnit">
             <option value="adet" data-i18n="unitAdet">Adet (tam sayı)</option>

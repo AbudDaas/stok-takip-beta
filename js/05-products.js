@@ -3,6 +3,7 @@ import { save } from './01-firebase-core.js';
 import { escapeHtml, formatQty, formatTL, genId, getStatus, getStatusLabel, mkProduct, printOrderListAsPdf, showPrompt, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
+import { caseCostToUnitCost, casesToUnits, getCaseSize } from './26-case-units.js';
 import { callGeminiWithRetry } from './16-bulk-scan-ai.js';
 import { renderAll } from './20-navigation.js';
 
@@ -272,17 +273,28 @@ export function updateOutOfStockTracking(p) {
     }
   }
 
-export function adjustQty(id, delta) {
+export function adjustQty(id, delta, note) {
     const p = state.products.find((x) => x.id === id);
     if (!p) return;
     const qtyBefore = p.qty;
     p.qty = Math.max(0, Math.round((p.qty + delta) * 1000) / 1000);
-    recordStockMovement({ product: p, type: delta > 0 ? "manual_add" : "manual_remove", before: qtyBefore, after: p.qty, requested: delta });
+    recordStockMovement({ product: p, type: delta > 0 ? "manual_add" : "manual_remove", before: qtyBefore, after: p.qty, requested: delta, note });
     updateOutOfStockTracking(p);
     logAudit("Stok güncellendi", `${p.name}: ${delta > 0 ? "+" : ""}${delta} → ${p.qty}`);
     save();
     renderAll();
     if (state.activeProductId === id) updateModalContent(p);
+  }
+
+// Koli ile artır/azalt: 1 koli = ürünün koli içi adet sayısı kadar adet.
+export function adjustCases(id, cases) {
+    const p = state.products.find((x) => x.id === id);
+    const size = getCaseSize(p);
+    if (!p || !size) {
+      showToast(state.t("caseSizeMissing"), "error");
+      return;
+    }
+    adjustQty(id, casesToUnits(cases, size), `${Math.abs(cases)} ${state.t("caseWord")} × ${size}`);
   }
 
 export function setQtyManually(id, newQty) {
@@ -331,6 +343,11 @@ export function saveEdit() {
     p.min = Number(document.getElementById("editMin").value) || 0;
     p.price = Number(document.getElementById("editPrice").value) || 0;
     p.costPrice = Number(document.getElementById("editCostPrice").value) || 0;
+    p.caseSize = Number(document.getElementById("editCaseSize").value) || 0;
+    p.caseCostPrice = Number(document.getElementById("editCaseCost").value) || 0;
+    // Koli fiyatı ve koli içi adet girildiyse adet alış fiyatı otomatik hesaplanır.
+    const derivedCost = caseCostToUnitCost(p.caseCostPrice, p.caseSize);
+    if (derivedCost) p.costPrice = derivedCost;
     p.barcode = document.getElementById("editBarcode").value.trim();
     p.unit = document.getElementById("editUnit").value;
     p.expiryDate = document.getElementById("editExpiryDate").value || null;
@@ -573,6 +590,9 @@ export function openModal(id) {
     document.getElementById("editMin").value = p.min;
     document.getElementById("editPrice").value = p.price;
     document.getElementById("editCostPrice").value = p.costPrice || 0;
+    document.getElementById("editCaseSize").value = p.caseSize || "";
+    document.getElementById("editCaseSize").placeholder = getCaseSize(p) || state.t("caseSizePh");
+    document.getElementById("editCaseCost").value = p.caseCostPrice || "";
     document.getElementById("editBarcode").value = p.barcode || "";
     document.getElementById("editUnit").value = p.unit || "adet";
     document.getElementById("editExpiryDate").value = p.expiryDate || "";
@@ -717,6 +737,15 @@ export function updateModalContent(p) {
     const pill = document.getElementById("modalStatus");
     pill.textContent = getStatusLabel(status);
     pill.className = "status-pill " + state.STATUS_CLASS[status];
+    const caseRow = document.getElementById("caseQtyRow");
+    if (caseRow) {
+      const size = p.unit === "kg" ? 0 : getCaseSize(p);
+      caseRow.style.display = size ? "" : "none";
+      if (size) {
+        document.getElementById("caseMinusLabel").textContent = `−1 ${state.t("caseWord")} (−${size})`;
+        document.getElementById("casePlusLabel").textContent = `+1 ${state.t("caseWord")} (+${size})`;
+      }
+    }
     const warehouseEl = document.getElementById("modalWarehouseQty");
     if (warehouseEl) warehouseEl.textContent = formatQty({ unit: p.unit, qty: p.warehouseQty || 0 });
   }

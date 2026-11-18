@@ -133,8 +133,21 @@ export function formatQty(p) {
     return p.qty + " " + state.t("unitAdetShort");
   }
 
+// Desteklenen para birimleri: simge ve ondalık sayısı (SYP'de kuruş kullanılmaz).
+export const CURRENCIES = {
+    TRY: { symbol: "₺", decimals: 2 },
+    SYP: { symbol: "ل.س", decimals: 0 },
+    USD: { symbol: "$", decimals: 2 }
+  };
+
+export function formatMoney(n, code) {
+    const c = CURRENCIES[code] || CURRENCIES.TRY;
+    return (Number(n) || 0).toLocaleString(locale(), { minimumFractionDigits: c.decimals, maximumFractionDigits: c.decimals }) + " " + c.symbol;
+  }
+
+// Adı eski kaldı (89 yerde kullanılıyor); artık işletmenin seçtiği para birimini kullanır.
 export function formatTL(n) {
-    return (Number(n) || 0).toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
+    return formatMoney(n, state.currency);
   }
 
 export function isBulkScanConfigured() {

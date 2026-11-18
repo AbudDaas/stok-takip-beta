@@ -14,6 +14,7 @@ import { renderReminders } from './10-reminders.js';
 import { renderBreadStatus, renderPriceChanges } from './11-bread-orders.js';
 import { loadBranches, renderCatalogList } from './13-branches-chain.js';
 import { renderAiPanel } from './17-ai-panel.js';
+import { renderCurrencySettings } from './27-currency.js';
 import { loadAutoBackups, renderBrandIdentitySettings, renderDataSize, renderDeliverySettings, renderLoyaltySettings, renderPublicCatalogSettings, renderScaleBarcodeSettings } from './18-settings-backup.js';
 
 export function renderAll() {
@@ -111,6 +112,7 @@ export function renderAll() {
     renderPendingCustomers();
     renderPublicCatalogSettings();
     renderLoyaltySettings();
+    renderCurrencySettings();
     renderScaleBarcodeSettings();
     renderDeliverySettings();
     renderBrandIdentitySettings();
