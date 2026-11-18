@@ -26,9 +26,15 @@ if ("serviceWorker" in navigator) {
   }
 
 if ("serviceWorker" in navigator) {
+    // İlk kurulumda "güncellendi" mesajı göstermemek için, sayfa açılırken zaten
+    // bir Service Worker kontrol ediyorsa güncelleme bildirimi gösterilir.
+    const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("message", (event) => {
       if (event.data && event.data.type === "BAKKAL_SYNC_RECONNECTED") {
         showToast(state.t("syncReconnected"), "success");
+      }
+      if (event.data && event.data.type === "BAKKAL_SW_UPDATED" && hadController) {
+        showToast(state.t("swUpdated"), "info");
       }
     });
   }

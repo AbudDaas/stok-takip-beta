@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node tests/logic.test.mjs",
     "lint": "eslint js/",
-    "verify-imports": "node verify-esm-imports.js"
+    "verify-imports": "node verify-esm-imports.js",
+    "verify-sw": "node verify-sw-assets.js"
   },
   "devDependencies": {
     "acorn": "^8.15.0",

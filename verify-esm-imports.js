@@ -3,12 +3,12 @@ const path = require("path");
 const acorn = require("acorn");
 const escope = require("eslint-scope");
 
-const SRC_DIR = "/home/claude/bakkal-app-refactored/js";
+const SRC_DIR = require("path").join(__dirname, "js");
 
 const KNOWN_GLOBALS = new Set([
   "window", "document", "navigator", "console", "fetch", "localStorage", "sessionStorage",
   "Notification", "SpeechSynthesisUtterance", "FileReader", "FormData", "File", "Blob",
-  "URL", "URLSearchParams", "QRCode", "XLSX", "confirm", "firebase", "setTimeout",
+  "URL", "URLSearchParams", "QRCode", "L", "Image", "performance", "XLSX", "confirm", "firebase", "setTimeout",
   "clearTimeout", "requestAnimationFrame", "caches", "Html5Qrcode", "chainConfig",
   "bulkScanConfig", "pushConfig", "adminConfig", "firebaseConfig", "Math", "Date",
   "JSON", "Object", "Array", "String", "Number", "Boolean", "Promise", "Map", "Set",

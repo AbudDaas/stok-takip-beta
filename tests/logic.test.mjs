@@ -16,7 +16,7 @@ import { getBulkDiscountForItem, calcLineTotal } from "../js/07-kasa-checkout.js
 import { getCustomerDebt } from "../js/06-veresiye.js";
 import { getSupplierBalance } from "../js/09-suppliers.js";
 import { isInPeriod } from "../js/08-sales-returns.js";
-import { logPerf, processInChunks, getPerfSummary, clearPerfLog } from "../js/21-perf-logger.js";
+import { measurePerf, logPerfEntry, getPerfLog, summarizePerfLog, clearPerfLog } from "../js/22-perf-logger.js";
 
 let passed = 0;
 let failed = 0;
@@ -39,8 +39,8 @@ test("varsayılan %20 kâr oranıyla doğru fiyat hesaplar", () => {
 test("özel kâr oranıyla doğru fiyat hesaplar", () => {
   assert.strictEqual(calcSellingPrice(100, 50), 150);
 });
-test("küsuratlı sonucu 2 ondalığa yuvarlar", () => {
-  assert.strictEqual(calcSellingPrice(33.33, 15), 38.33);
+test("küsuratlı sonucu 5'in katına yukarı yuvarlar", () => {
+  assert.strictEqual(calcSellingPrice(33.33, 15), 40);
 });
 test("%0 kâr oranında maliyeti aynen döndürür", () => {
   assert.strictEqual(calcSellingPrice(50, 0), 50);
@@ -71,11 +71,16 @@ test("eşiğe ulaşan miktarda yüzde indirimi doğru hesaplar", () => {
   assert.strictEqual(discount.perUnitDiscount, 2);
   assert.strictEqual(discount.totalDiscount, 48);
 });
-test("adet başı sabit TL indirimi doğru hesaplar", () => {
-  state.products = [{ id: "p2", bulkDiscountQty: 12, bulkDiscountType: "amount", bulkDiscountValue: 2 }];
+test("sabit tutar indirimi satır toplamından düşülür (adet başına değil)", () => {
+  state.products = [{ id: "p2", bulkDiscountQty: 12, bulkDiscountType: "amount", bulkDiscountValue: 24 }];
   const discount = getBulkDiscountForItem({ productId: "p2", qty: 12, price: 15 });
-  assert.strictEqual(discount.perUnitDiscount, 2);
   assert.strictEqual(discount.totalDiscount, 24);
+  assert.strictEqual(discount.perUnitDiscount, 2);
+});
+test("sabit tutar indirimi satır toplamını aşamaz", () => {
+  state.products = [{ id: "p3", bulkDiscountQty: 2, bulkDiscountType: "amount", bulkDiscountValue: 999 }];
+  const discount = getBulkDiscountForItem({ productId: "p3", qty: 2, price: 10 });
+  assert.strictEqual(discount.totalDiscount, 20);
 });
 test("toplu indirimi olmayan üründe null döner", () => {
   state.products = [{ id: "p3" }];
@@ -146,49 +151,42 @@ test("1 yıl önceki tarih 'week' periyoduna dahil değildir", () => {
   assert.strictEqual(isInPeriod(new Date(Date.now() - 365 * 86400000).toISOString(), "week"), false);
 });
 
-console.log("\n📦 21-perf-logger.js — logPerf / processInChunks / getPerfSummary");
-test("logPerf başarılı fonksiyonun sonucunu döner ve loga 'ok' yazar", () => {
+console.log("\n📦 22-perf-logger.js — measurePerf / logPerfEntry / summarizePerfLog");
+test("measurePerf başarılı fonksiyonun sonucunu döner ve hatasız kayıt yazar", () => {
   clearPerfLog();
-  const result = logPerf("testOp", () => 1 + 1);
+  const result = measurePerf("testOp", () => 1 + 1);
   assert.strictEqual(result, 2);
-  const summary = getPerfSummary();
-  assert.strictEqual(summary.length, 1);
-  assert.strictEqual(summary[0].label, "testOp");
-  assert.strictEqual(summary[0].errors, 0);
+  const log = getPerfLog();
+  assert.strictEqual(log.length, 1);
+  assert.strictEqual(log[0].label, "testOp");
+  assert.strictEqual(log[0].errorOccurred, false);
 });
-test("logPerf, fonksiyon hata fırlatırsa hatayı loglar ve tekrar fırlatır", () => {
+test("measurePerf, fonksiyon hata fırlatırsa hatayı loglar ve tekrar fırlatır", () => {
   clearPerfLog();
   assert.throws(() => {
-    logPerf("failingOp", () => {
+    measurePerf("failingOp", () => {
       throw new Error("boom");
     });
   }, /boom/);
-  const summary = getPerfSummary();
-  assert.strictEqual(summary[0].errors, 1);
+  const log = getPerfLog();
+  assert.strictEqual(log[0].errorOccurred, true);
 });
-test("getPerfSummary aynı etiket için ortalama süreyi ve çağrı sayısını doğru hesaplar", () => {
+test("summarizePerfLog aynı etiket için çağrı sayısını, ortalamayı ve en yavaşı doğru hesaplar", () => {
   clearPerfLog();
-  logPerf("repeatedOp", () => {});
-  logPerf("repeatedOp", () => {});
-  const summary = getPerfSummary();
+  logPerfEntry("repeatedOp", 10);
+  logPerfEntry("repeatedOp", 30);
+  const summary = summarizePerfLog();
+  assert.strictEqual(summary.length, 1);
   assert.strictEqual(summary[0].count, 2);
+  assert.strictEqual(summary[0].avgMs, 20);
+  assert.strictEqual(summary[0].maxMs, 30);
 });
-test("processInChunks tüm elemanları sırayla işler ve bitince onDone çağırır (chunkSize >= uzunluk, tek adımda biter)", () => {
-  const items = Array.from({ length: 50 }, (_, i) => i);
-  const seen = [];
-  let doneCalled = false;
-  // chunkSize >= items.length olduğunda step() ilk çağrıda hepsini işleyip
-  // senkron biter (setTimeout'a düşmez) — bu test bu senkron yolu doğrular.
-  processInChunks(items, items.length, (item) => seen.push(item), () => (doneCalled = true));
-  assert.strictEqual(doneCalled, true);
-  assert.strictEqual(seen.length, 50);
-  assert.strictEqual(seen[0], 0);
-  assert.strictEqual(seen[49], 49);
-});
-test("processInChunks boş diziyle hemen onDone çağırır", () => {
-  let called = false;
-  processInChunks([], 10, () => {}, () => (called = true));
-  assert.strictEqual(called, true);
+test("logPerfEntry en fazla 200 kayıt tutar (en eskiler düşer)", () => {
+  clearPerfLog();
+  for (let i = 0; i < 210; i++) logPerfEntry("op" + i, 1);
+  const log = getPerfLog();
+  assert.strictEqual(log.length, 200);
+  assert.strictEqual(log[0].label, "op10");
 });
 
 console.log(`\n${passed} test geçti, ${failed} test başarısız.\n`);
