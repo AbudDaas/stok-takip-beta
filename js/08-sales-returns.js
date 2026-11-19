@@ -1,10 +1,11 @@
 import { state } from './00-state.js';
 import { locale, save } from './01-firebase-core.js';
-import { escapeHtml, formatTL, genId, showToast } from './02-utils.js';
+import { escapeHtml, formatMoney, formatTL, genId, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
 import { renderAll } from './20-navigation.js';
 import { cashByCurrency, formatCashTotals } from './29-mixed-payment.js';
+import { latestRate, sanitizeRate } from './27-currency.js';
 
 export function getReturnedQtyForItem(saleId, itemName) {
     return state.returns
@@ -188,11 +189,20 @@ function getExpectedCashToday() {
 
 export function submitZReport() {
   const actualInput = document.getElementById("zReportActual");
-  const actual = Number(actualInput.value);
-  if (!actual && actual !== 0) {
+  const usdInput = document.getElementById("zReportActualUsd");
+  const usdCounted = state.currency !== "USD" && usdInput && usdInput.value !== "" ? Number(String(usdInput.value).replace(",", ".")) : 0;
+  const localCounted = Number(actualInput.value);
+  if ((!localCounted && localCounted !== 0) || !Number.isFinite(usdCounted) || usdCounted < 0) {
     showToast(state.t("alertInvalidAmount"), "error");
     return;
   }
+  // Sayılan dolar, güncel kurla işletme birimine çevrilip toplanır.
+  const rate = usdCounted > 0 ? sanitizeRate(latestRate(state.exchangeRates, state.currency)) : 0;
+  if (usdCounted > 0 && !rate) {
+    showToast(state.t("cashRateRequired"), "error");
+    return;
+  }
+  const actual = Math.round((localCounted + usdCounted * rate) * 100) / 100;
   const expected = getExpectedCashToday();
   const difference = Math.round((actual - expected) * 100) / 100;
 
@@ -201,12 +211,14 @@ export function submitZReport() {
     expected,
     actual,
     difference,
+    ...(usdCounted > 0 ? { usdCounted, localCounted, rate } : {}),
     createdAt: new Date().toISOString()
   });
 
   logAudit("Gün sonu kasa sayımı yapıldı", `Beklenen: ${formatTL(expected)}, Sayılan: ${formatTL(actual)}, Fark: ${formatTL(difference)}`);
   save();
   actualInput.value = "";
+  if (usdInput) usdInput.value = "";
   renderZReport();
   showToast(state.t("zReportSaved"), "success");
 }
@@ -223,6 +235,8 @@ export function renderZReport() {
   if (!expectedEl) return;
 
   expectedEl.textContent = formatTL(getExpectedCashToday());
+  const usdRow = document.getElementById("zReportActualUsd");
+  if (usdRow) usdRow.style.display = state.currency === "USD" ? "none" : "";
   const byCurrencyEl = document.getElementById("zReportCashByCurrency");
   if (byCurrencyEl) {
     byCurrencyEl.textContent = formatCashTotals(cashByCurrency(state.sales, state.currency, (s) => isInPeriod(s.timestamp, "today")));
@@ -242,7 +256,7 @@ export function renderZReport() {
         <div class="reminder-row">
           <div>
             <p class="reminder-name">${dateStr}</p>
-            <p class="reminder-meta">${state.t("zReportExpectedShort")}: ${formatTL(z.expected)} · ${state.t("zReportActualShort")}: ${formatTL(z.actual)}</p>
+            <p class="reminder-meta">${state.t("zReportExpectedShort")}: ${formatTL(z.expected)} · ${state.t("zReportActualShort")}: ${formatTL(z.actual)}${z.usdCounted ? ` (${formatMoney(z.usdCounted, "USD")} × ${z.rate})` : ""}</p>
           </div>
           <div style="display:flex;align-items:center;gap:10px;">
             <span style="font-weight:700;color:${diffColor};">${diffLabel}</span>

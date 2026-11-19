@@ -12,6 +12,7 @@ import assert from "assert";
 import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
+import { buildStatementEntries, buildStatementText } from "../js/30-veresiye-statement.js";
 import { cashByCurrency, computeCashReceipt, formatCashTotals } from "../js/29-mixed-payment.js";
 import { ORDER_DEFAULTS, buildSalesIndex, findSlowMovers, planOrder, roundOrderQty, soldQuantities, velocityFrom } from "../js/28-order-planning.js";
 import { calcOrderSuggestions } from "../js/17-ai-panel.js";
@@ -609,6 +610,23 @@ test("cashByCurrency: para birimi bazında toplar, para üstünü yerel birimden
   const t = cashByCurrency(sales, "SYP");
   assert.strictEqual(t.USD, 20);
   assert.strictEqual(t.SYP, -30000); // 5000 - 45000 + 10000
+});
+
+test("veresiye ekstresi: yürüyen bakiye ve metin", () => {
+  const sales = [{ paymentType: "veresiye", customerId: "c1", timestamp: "2026-11-01T10:00:00Z", total: 100, currency: "TRY" },
+    { paymentType: "veresiye", customerId: "c2", timestamp: "2026-11-02T10:00:00Z", total: 999, currency: "TRY" }];
+  const payments = [{ customerId: "c1", timestamp: "2026-11-03T10:00:00Z", amount: 40 }];
+  const e = buildStatementEntries(sales, payments, "c1", "TRY");
+  assert.strictEqual(e.length, 2);
+  assert.strictEqual(e[1].balance, 60);
+  const text = buildStatementText({ name: "Ali", entries: e, debt: 60, currency: "TRY",
+    labels: { title: "T", debt: "D", payment: "P", balance: "B" }, dateFmt: () => "x" });
+  assert.ok(text.includes("B: ") && text.startsWith("T - Ali"));
+});
+test("veresiye ekstresi: karışık para biriminde yürüyen bakiye yazılmaz", () => {
+  const e = buildStatementEntries([{ paymentType: "veresiye", customerId: "c1", timestamp: "2026-11-01T10:00:00Z", total: 5, currency: "USD" }],
+    [{ customerId: "c1", timestamp: "2026-11-02T10:00:00Z", amount: 100 }], "c1", "SYP");
+  assert.strictEqual(e[0].balance, null);
 });
 
 console.log(`\n${passed} test geçti, ${failed} test başarısız.\n`);

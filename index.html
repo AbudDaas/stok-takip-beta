@@ -502,6 +502,7 @@
         <p class="card-subtitle" style="margin-top:0;"><span data-i18n="zReportExpectedLabel">Olması gereken (bugünkü nakit satış)</span>: <span id="zReportExpected" style="font-weight:700;">0,00 ₺</span></p>
         <p class="card-subtitle" style="margin-top:0;"><span data-i18n="zCashByCurrencyLabel">Kasadaki nakit (para birimine göre)</span>: <span id="zReportCashByCurrency" style="font-weight:700;">—</span></p>
         <div class="form-row two-col">
+          <input id="zReportActualUsd" type="text" inputmode="decimal" data-i18n-placeholder="zReportActualUsdPh" placeholder="Sayılan dolar ($) — opsiyonel" style="margin-bottom:6px;" />
           <input id="zReportActual" type="number" min="0" step="0.01" data-i18n-placeholder="zReportActualPh" placeholder="Gerçekte sayılan tutar" />
           <button id="submitZReportBtn" class="btn btn-primary btn-block">
             <i class="fa-solid fa-check" aria-hidden="true"></i> <span data-i18n="zReportSubmitBtn">Kaydet</span>
@@ -1790,6 +1791,9 @@
 
         <div class="modal-section">
           <p class="field-label" data-i18n="historyTitle">İşlem geçmişi</p>
+          <button id="sendStatementBtn" class="btn btn-secondary btn-block" style="margin-bottom:8px;">
+            <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> <span data-i18n="statementBtn">Ekstreyi WhatsApp ile gönder</span>
+          </button>
           <div id="customerHistoryList" class="list"></div>
         </div>
       </div>
