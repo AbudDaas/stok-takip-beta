@@ -4,6 +4,7 @@ import { escapeHtml, formatQty, formatTL, genId, showPrompt, showToast } from '.
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
 import { latestRate, usdEquivalentText } from './27-currency.js';
+import { clearCashInputs, computeCashReceipt, readCashInputs, renderCashPanel, updateCashPreview } from './29-mixed-payment.js';
 import { attemptSendToFiscalProvider } from './04-fiscal.js';
 import { adjustQty, findProductByCaseScan, findProductByScan, getDisplayName, parseScaleBarcode, updateOutOfStockTracking } from './05-products.js';
 import { measurePerf } from './22-perf-logger.js';
@@ -613,6 +614,8 @@ export function renderCart() {
     document.getElementById("cartTotal").textContent = formatTL(total);
     const usdEl = document.getElementById("cartTotalUsd");
     if (usdEl) usdEl.textContent = usdEquivalentText(total);
+    renderCashPanel();
+    updateCashPreview(total);
   }
 
 export function setPaymentType(type) {
@@ -623,6 +626,7 @@ export function setPaymentType(type) {
     document.getElementById("payGiftCardBtn").classList.toggle("active", type === "hediye");
     document.getElementById("veresiyeCustomerRow").style.display = type === "veresiye" ? "block" : "none";
     document.getElementById("giftCardPaymentRow").style.display = type === "hediye" ? "block" : "none";
+    renderCashPanel();
     if (type !== "hediye") {
       document.getElementById("giftCardBalanceInfo").style.display = "none";
       document.getElementById("giftCardCodeInput").value = "";
@@ -702,6 +706,18 @@ function completeSaleImpl() {
     }
 
     let totalCost = 0;
+    // Karışık nakit ödeme: müşterinin verdiği USD/yerel tutarları doğrula (boşsa tam tutar nakit sayılır).
+    let cashReceipt = null;
+    const cashInput = state.selectedPaymentType === "nakit" ? readCashInputs() : null;
+    if (cashInput) {
+      const receipt = computeCashReceipt({ total, ...cashInput, currency: state.currency });
+      if (!receipt.ok) {
+        showToast(receipt.error === "rate" ? state.t("cashRateRequired") : `${state.t("cashShort")}: ${formatTL(receipt.short)}`, "error");
+        return;
+      }
+      if (!receipt.empty) cashReceipt = receipt;
+    }
+
     const saleItems = state.cart.map((c) => {
       const p = state.products.find((x) => x.id === c.productId);
       const costPrice = p ? p.costPrice || 0 : 0;
@@ -737,6 +753,11 @@ function completeSaleImpl() {
       currency: state.currency,
       usdRate: latestRate(state.exchangeRates, state.currency) || null
     };
+    if (cashReceipt) {
+      newSale.payments = cashReceipt.payments;
+      newSale.cashReceived = cashReceipt.received;
+      newSale.changeGiven = cashReceipt.change;
+    }
     state.sales.push(newSale);
     if (customerId) earnLoyaltyPoints(customerId, total);
     if (giftCardCode) redeemGiftCard(giftCardCode, total);
@@ -746,6 +767,7 @@ function completeSaleImpl() {
     state.cart = [];
     discountInput.value = "0";
     clearVeresiyeCustomerSelection();
+    clearCashInputs();
     setPaymentType("nakit");
     save();
     renderAll();

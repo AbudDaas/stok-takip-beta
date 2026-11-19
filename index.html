@@ -409,6 +409,23 @@
             <i class="fa-solid fa-gift" aria-hidden="true"></i> <span data-i18n="payGiftCard">Hediye Kartı</span>
           </button>
         </div>
+        <div id="cashPaymentRow" class="form-row" style="display:block;">
+          <p class="card-subtitle" style="margin:0 0 4px;" data-i18n="cashPanelTitle">Müşteri verdi (opsiyonel)</p>
+          <div class="form-row two-col">
+            <div>
+              <label class="field-label" for="cashUsdInput" data-i18n="cashUsdLabel">Dolar ($)</label>
+              <input id="cashUsdInput" type="text" inputmode="decimal" />
+            </div>
+            <div>
+              <label id="cashLocalLabel" class="field-label" for="cashLocalInput"></label>
+              <input id="cashLocalInput" type="text" inputmode="decimal" />
+            </div>
+          </div>
+          <label class="field-label" for="cashRateInput" data-i18n="cashRateLabel">Kur (1 USD = ?)</label>
+          <input id="cashRateInput" type="text" inputmode="decimal" />
+          <p id="cashPaymentPreview" class="card-subtitle" aria-live="polite"></p>
+        </div>
+
         <div id="veresiyeCustomerRow" class="form-row" style="display:none;">
           <div class="searchable-select">
             <input id="veresiyeCustomerSearch" type="text" data-i18n-placeholder="searchCustomerPh" placeholder="Müşteri ara..." autocomplete="off" />
@@ -483,6 +500,7 @@
         <p class="card-title" data-i18n="zReportTitle">🧮 Gün Sonu Kasa Sayımı</p>
         <p class="card-subtitle" data-i18n="zReportSubtitle">Kasada olması gereken nakit miktarı otomatik hesaplanır — sen gerçekte saydığın tutarı gir, aradaki farkı gör.</p>
         <p class="card-subtitle" style="margin-top:0;"><span data-i18n="zReportExpectedLabel">Olması gereken (bugünkü nakit satış)</span>: <span id="zReportExpected" style="font-weight:700;">0,00 ₺</span></p>
+        <p class="card-subtitle" style="margin-top:0;"><span data-i18n="zCashByCurrencyLabel">Kasadaki nakit (para birimine göre)</span>: <span id="zReportCashByCurrency" style="font-weight:700;">—</span></p>
         <div class="form-row two-col">
           <input id="zReportActual" type="number" min="0" step="0.01" data-i18n-placeholder="zReportActualPh" placeholder="Gerçekte sayılan tutar" />
           <button id="submitZReportBtn" class="btn btn-primary btn-block">

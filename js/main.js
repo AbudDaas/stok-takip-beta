@@ -22,6 +22,7 @@ import { finishOnboarding, onboardingNext } from './19-onboarding.js';
 import { renderAll, switchTab } from './20-navigation.js';
 import { renderStockHistory } from './25-stock-movements.js';
 import { addExchangeRate, renderConversionBox, saveCurrencySetting } from './27-currency.js';
+import { renderCashPanel } from './29-mixed-payment.js';
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});
@@ -363,6 +364,10 @@ document.getElementById("publicCatalogToggle").addEventListener("change", (e) =>
 document.getElementById("savePublicCatalogBtn").addEventListener("click", savePublicCatalogSettings);
 document.getElementById("copyPublicCatalogLinkBtn").addEventListener("click", copyPublicCatalogLink);
 document.getElementById("saveCurrencyBtn").addEventListener("click", () => saveCurrencySetting(renderAll));
+["cashUsdInput", "cashLocalInput", "cashRateInput"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", renderCart);
+});
+renderCashPanel();
 document.getElementById("currencySelect").addEventListener("change", () => {
     const rateInput = document.getElementById("currencyConvertRate");
     rateInput.value = "";

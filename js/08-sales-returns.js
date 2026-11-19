@@ -4,6 +4,7 @@ import { escapeHtml, formatTL, genId, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
 import { renderAll } from './20-navigation.js';
+import { cashByCurrency, formatCashTotals } from './29-mixed-payment.js';
 
 export function getReturnedQtyForItem(saleId, itemName) {
     return state.returns
@@ -222,6 +223,10 @@ export function renderZReport() {
   if (!expectedEl) return;
 
   expectedEl.textContent = formatTL(getExpectedCashToday());
+  const byCurrencyEl = document.getElementById("zReportCashByCurrency");
+  if (byCurrencyEl) {
+    byCurrencyEl.textContent = formatCashTotals(cashByCurrency(state.sales, state.currency, (s) => isInPeriod(s.timestamp, "today")));
+  }
 
   const sorted = [...(state.zReports || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
   if (!sorted.length) {

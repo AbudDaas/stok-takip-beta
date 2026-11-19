@@ -12,6 +12,7 @@ import assert from "assert";
 import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
+import { cashByCurrency, computeCashReceipt, formatCashTotals } from "../js/29-mixed-payment.js";
 import { ORDER_DEFAULTS, buildSalesIndex, findSlowMovers, planOrder, roundOrderQty, soldQuantities, velocityFrom } from "../js/28-order-planning.js";
 import { calcOrderSuggestions } from "../js/17-ai-panel.js";
 import { saveCurrencySetting } from "../js/27-currency.js";
@@ -568,6 +569,46 @@ test("calcOrderSuggestions: depodaki stok sayılır ve tedarikçinin teslimat s�
 });
 test("ORDER_DEFAULTS makul varsayılanlar içerir", () => {
   assert.deepStrictEqual(ORDER_DEFAULTS, { leadDays: 3, safetyDays: 2, coverDays: 7 });
+});
+
+test("karışık ödeme: boş girişte tam tutar nakit sayılır", () => {
+  const r = computeCashReceipt({ total: 5000, usdGiven: "", localGiven: "", rate: "", currency: "SYP" });
+  assert.ok(r.ok && r.empty && r.change === 0 && r.payments.length === 0);
+});
+test("karışık ödeme: 20$ + 5000 ل.س, kur 12000, toplam 200000 → para üstü 45000", () => {
+  const r = computeCashReceipt({ total: 200000, usdGiven: "20", localGiven: "5000", rate: "12000", currency: "SYP" });
+  assert.ok(r.ok);
+  assert.strictEqual(r.received, 245000);
+  assert.strictEqual(r.change, 45000);
+  assert.strictEqual(r.payments.length, 2);
+  assert.strictEqual(r.payments[0].currency, "USD");
+});
+test("karışık ödeme: yetersiz tutar eksik olarak döner", () => {
+  const r = computeCashReceipt({ total: 300000, usdGiven: "10", localGiven: "", rate: "12000", currency: "SYP" });
+  assert.ok(!r.ok);
+  assert.strictEqual(r.error, "short");
+  assert.strictEqual(r.short, 180000);
+});
+test("karışık ödeme: dolar girilip kur yoksa hata", () => {
+  const r = computeCashReceipt({ total: 100, usdGiven: "5", localGiven: "", rate: "", currency: "SYP" });
+  assert.ok(!r.ok);
+  assert.strictEqual(r.error, "rate");
+});
+test("karışık ödeme: yalnızca yerel para, kur gerekmez; virgüllü sayı kabul edilir", () => {
+  const r = computeCashReceipt({ total: 85.5, usdGiven: "", localGiven: "100,5", rate: "", currency: "TRY" });
+  assert.ok(r.ok);
+  assert.strictEqual(r.change, 15);
+});
+test("cashByCurrency: para birimi bazında toplar, para üstünü yerel birimden düşer", () => {
+  const sales = [
+    { paymentType: "nakit", currency: "SYP", total: 200000, payments: [
+      { currency: "USD", amount: 20 }, { currency: "SYP", amount: 5000 }], changeGiven: 45000 },
+    { paymentType: "nakit", currency: "SYP", total: 10000 },
+    { paymentType: "kart", currency: "SYP", total: 99999 }
+  ];
+  const t = cashByCurrency(sales, "SYP");
+  assert.strictEqual(t.USD, 20);
+  assert.strictEqual(t.SYP, -30000); // 5000 - 45000 + 10000
 });
 
 console.log(`\n${passed} test geçti, ${failed} test başarısız.\n`);
