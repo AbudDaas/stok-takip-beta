@@ -1171,13 +1171,23 @@
 
       <div class="card">
         <p class="card-title" data-i18n="currencyTitle">💱 Para Birimi ve Kur</p>
-        <p class="card-subtitle" data-i18n="currencySubtitle">Tutarların hangi para biriminde gösterileceğini seç. Bu seçim ürün fiyatlarını dönüştürmez, sadece simgeyi ve ondalık biçimini değiştirir.</p>
+        <p class="card-subtitle" data-i18n="currencySubtitle">Tutarların hangi para biriminde gösterileceğini seç. Birimi değiştirirken girdiğin kurla ürün fiyatların da yeni birime çevrilir.</p>
         <label class="field-label" for="currencySelect" data-i18n="currencyLabel">İşletme para birimi</label>
         <select id="currencySelect">
           <option value="TRY">₺ — Türk Lirası (TRY)</option>
           <option value="SYP">ل.س — Suriye Lirası (SYP)</option>
           <option value="USD">$ — ABD Doları (USD)</option>
         </select>
+        <div id="currencyConvertBox" style="display:none; margin-top:10px;">
+          <label class="checkbox-row">
+            <input id="currencyConvertCheck" type="checkbox" checked />
+            <span data-i18n="currencyConvertCheckLabel">Ürün fiyatlarını yeni birime çevir</span>
+          </label>
+          <label id="currencyConvertRateLabel" class="field-label" for="currencyConvertRate"></label>
+          <input id="currencyConvertRate" type="text" inputmode="decimal" />
+          <p id="currencyConvertExample" class="card-subtitle" aria-live="polite"></p>
+          <p class="card-subtitle" data-i18n="currencyConvertWarning">Geçmiş satışlar, veresiye borçları, giderler ve tedarikçi borçları dönüştürülmez; eski birimde kalır.</p>
+        </div>
         <button id="saveCurrencyBtn" class="btn btn-primary btn-block" style="margin-top:8px;">
           <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> <span data-i18n="saveBtn">Kaydet</span>
         </button>

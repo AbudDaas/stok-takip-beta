@@ -21,7 +21,7 @@ import { applyFontSize, applyNavPosition, applyScanCooldown, applyScanFps, apply
 import { finishOnboarding, onboardingNext } from './19-onboarding.js';
 import { renderAll, switchTab } from './20-navigation.js';
 import { renderStockHistory } from './25-stock-movements.js';
-import { addExchangeRate, saveCurrencySetting } from './27-currency.js';
+import { addExchangeRate, renderConversionBox, saveCurrencySetting } from './27-currency.js';
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js").catch(() => {});
@@ -363,6 +363,17 @@ document.getElementById("publicCatalogToggle").addEventListener("change", (e) =>
 document.getElementById("savePublicCatalogBtn").addEventListener("click", savePublicCatalogSettings);
 document.getElementById("copyPublicCatalogLinkBtn").addEventListener("click", copyPublicCatalogLink);
 document.getElementById("saveCurrencyBtn").addEventListener("click", () => saveCurrencySetting(renderAll));
+document.getElementById("currencySelect").addEventListener("change", () => {
+    const rateInput = document.getElementById("currencyConvertRate");
+    rateInput.value = "";
+    delete rateInput.dataset.touched;
+    renderConversionBox();
+  });
+document.getElementById("currencyConvertRate").addEventListener("input", (e) => {
+    e.target.dataset.touched = "1";
+    renderConversionBox();
+  });
+document.getElementById("currencyConvertCheck").addEventListener("change", renderConversionBox);
 document.getElementById("addExchangeRateBtn").addEventListener("click", () => addExchangeRate(renderAll));
 document.getElementById("loyaltyToggle").addEventListener("change", (e) => toggleLoyalty(e.target.checked));
 document.getElementById("saveLoyaltySettingsBtn").addEventListener("click", saveLoyaltySettings);

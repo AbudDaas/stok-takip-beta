@@ -20,3 +20,11 @@ if (typeof globalThis.localStorage === "undefined") {
     clear: () => store.clear()
   };
 }
+
+// Node.js'te requestAnimationFrame yok (toast animasyonu kullanıyor); hemen çalıştıran sahte sürüm.
+if (typeof globalThis.requestAnimationFrame === "undefined") {
+  globalThis.requestAnimationFrame = (fn) => {
+    fn();
+    return 0;
+  };
+}

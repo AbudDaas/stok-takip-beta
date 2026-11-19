@@ -735,7 +735,7 @@ function completeSaleImpl() {
       customerId,
       customerName,
       currency: state.currency,
-      usdRate: latestRate(state.exchangeRates) || null
+      usdRate: latestRate(state.exchangeRates, state.currency) || null
     };
     state.sales.push(newSale);
     if (customerId) earnLoyaltyPoints(customerId, total);

@@ -14,7 +14,8 @@ import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
 import { ORDER_DEFAULTS, buildSalesIndex, findSlowMovers, planOrder, roundOrderQty, soldQuantities, velocityFrom } from "../js/28-order-planning.js";
 import { calcOrderSuggestions } from "../js/17-ai-panel.js";
-import { addRateEntry, latestRate, localToUsd, sanitizeRate, usdToLocal, usdEquivalentText } from "../js/27-currency.js";
+import { saveCurrencySetting } from "../js/27-currency.js";
+import { addRateEntry, convertAmount, convertProductPrices, conversionFactor, latestRate, localToUsd, sanitizeRate, usdToLocal, usdEquivalentText } from "../js/27-currency.js";
 import { getBulkDiscountForItem, calcLineTotal } from "../js/07-kasa-checkout.js";
 import { getCustomerDebt } from "../js/06-veresiye.js";
 import { getSupplierBalance } from "../js/09-suppliers.js";
@@ -340,6 +341,150 @@ test("usdEquivalentText yalnızca USD dışı para biriminde ve kur varken metin
   state.exchangeRates = [];
   assert.strictEqual(usdEquivalentText(140000), "");
   state.currency = "TRY";
+});
+
+test("conversionFactor: TRY → USD, kur 1 USD = 50 ₺ ise çarpan 0,02", () => {
+  assert.strictEqual(conversionFactor("TRY", "USD", 50), 0.02);
+  assert.strictEqual(conversionFactor("USD", "SYP", 14000), 14000);
+  assert.strictEqual(conversionFactor("TRY", "SYP", 300), 300);
+  assert.strictEqual(conversionFactor("TRY", "TRY", 50), 0);
+  assert.strictEqual(conversionFactor("TRY", "USD", 0), 0);
+});
+test("convertAmount: 35 ₺ → 0,70 $ (kur 50), USD → SYP tam sayıya yuvarlanır", () => {
+  assert.strictEqual(convertAmount(35, conversionFactor("TRY", "USD", 50), "USD"), 0.7);
+  assert.strictEqual(convertAmount(0.7, conversionFactor("USD", "SYP", 14000), "SYP"), 9800);
+  assert.strictEqual(convertAmount(12.5, 0.02, "USD"), 0.25);
+});
+test("convertAmount: pozitif tutar hedef birimin en küçük değerinin altına düşmez, 0 ve geçersiz korunur", () => {
+  assert.strictEqual(convertAmount(0.1, 0.02, "USD"), 0.01);
+  assert.strictEqual(convertAmount(0, 0.02, "USD"), 0);
+  assert.strictEqual(convertAmount("abc", 0.02, "USD"), 0);
+});
+test("convertProductPrices fiyat, maliyet, koli maliyeti ve indirimli fiyatı çevirir; yüzde indirime dokunmaz", () => {
+  const p = { price: 35, costPrice: 25, caseCostPrice: 300, discountedPrice: 30, bulkDiscountType: "percent", bulkDiscountValue: 10, qty: 7, min: 3 };
+  const changed = convertProductPrices(p, 0.02, "USD");
+  assert.strictEqual(changed, 4);
+  assert.strictEqual(p.price, 0.7);
+  assert.strictEqual(p.costPrice, 0.5);
+  assert.strictEqual(p.caseCostPrice, 6);
+  assert.strictEqual(p.discountedPrice, 0.6);
+  assert.strictEqual(p.bulkDiscountValue, 10);
+  assert.strictEqual(p.qty, 7);
+});
+test("convertProductPrices sabit tutarlı toplu indirimi de çevirir", () => {
+  const p = { price: 100, bulkDiscountType: "amount", bulkDiscountValue: 50 };
+  convertProductPrices(p, 0.02, "USD");
+  assert.strictEqual(p.bulkDiscountValue, 1);
+});
+test("latestRate para birimine göre süzer; kaydı olmayan eski girdiler her birime uyar", () => {
+  const rates = [
+    { id: "a", date: "2026-01-01T00:00:00.000Z", rate: 50, currency: "TRY" },
+    { id: "b", date: "2026-01-02T00:00:00.000Z", rate: 14000, currency: "SYP" },
+    { id: "c", date: "2025-12-01T00:00:00.000Z", rate: 45 }
+  ];
+  assert.strictEqual(latestRate(rates, "TRY"), 50);
+  assert.strictEqual(latestRate(rates, "SYP"), 14000);
+  assert.strictEqual(latestRate([{ id: "x", date: "2026-01-01T00:00:00.000Z", rate: 45, currency: "SYP" }], "TRY"), 0);
+});
+test("addRateEntry para birimini kaydeder", () => {
+  const rates = addRateEntry([], 50, "2026-01-01T00:00:00.000Z", "TRY");
+  assert.strictEqual(rates[0].currency, "TRY");
+});
+
+test("saveCurrencySetting: 35 ₺ ürün, kur 1 USD = 50 ₺ → 0,70 $ olur (uçtan uca)", () => {
+  const els = {};
+  const mk = () => ({ style: {}, dataset: {}, classList: { add() {}, remove() {} }, textContent: "", innerHTML: "", value: "", checked: true, addEventListener() {}, appendChild() {}, remove() {}, setAttribute() {}, querySelector: () => mk(), querySelectorAll: () => [] });
+  const el = (id) => (els[id] = els[id] || mk());
+  const prevDoc = globalThis.document;
+  const prevConfirm = globalThis.confirm;
+  globalThis.document = { getElementById: el, createElement: () => mk(), body: { appendChild() {} }, querySelector: () => null };
+  globalThis.confirm = () => true;
+  try {
+    state.currency = "TRY";
+    state.exchangeRates = [];
+    state.perKmDeliveryFee = 10;
+    state.products = [
+      { id: "a", name: "Ekmek", price: 35, costPrice: 25, qty: 4, min: 2 },
+      { id: "b", name: "Süt", price: 0, qty: 1, min: 1 }
+    ];
+    el("currencySelect").value = "USD";
+    el("currencyConvertCheck").checked = true;
+    el("currencyConvertRate").value = "50";
+    saveCurrencySetting();
+    assert.strictEqual(state.currency, "USD");
+    assert.strictEqual(state.products[0].price, 0.7);
+    assert.strictEqual(state.products[0].costPrice, 0.5);
+    assert.strictEqual(state.products[0].qty, 4);
+    assert.strictEqual(state.products[1].price, 0);
+    assert.strictEqual(state.perKmDeliveryFee, 0.2);
+    assert.strictEqual(latestRate(state.exchangeRates, "TRY"), 50);
+    assert.strictEqual(formatTL(state.products[0].price), "0,70 $");
+    // geri dönüş: USD → TRY, aynı kurla
+    el("currencySelect").value = "TRY";
+    el("currencyConvertRate").value = "50";
+    saveCurrencySetting();
+    assert.strictEqual(state.currency, "TRY");
+    assert.strictEqual(state.products[0].price, 35);
+  } finally {
+    globalThis.document = prevDoc;
+    globalThis.confirm = prevConfirm;
+    state.currency = "TRY";
+    state.exchangeRates = [];
+    state.perKmDeliveryFee = 0;
+    state.products = [];
+  }
+});
+test("saveCurrencySetting: dönüştür işareti kapalıysa fiyatlar değişmez (eski davranış)", () => {
+  const els = {};
+  const mk = () => ({ style: {}, dataset: {}, classList: { add() {}, remove() {} }, textContent: "", innerHTML: "", value: "", checked: true, addEventListener() {}, appendChild() {}, remove() {}, setAttribute() {}, querySelector: () => mk(), querySelectorAll: () => [] });
+  const el = (id) => (els[id] = els[id] || mk());
+  const prevDoc = globalThis.document;
+  const prevConfirm = globalThis.confirm;
+  globalThis.document = { getElementById: el, createElement: () => mk(), body: { appendChild() {} }, querySelector: () => null };
+  globalThis.confirm = () => true;
+  try {
+    state.currency = "TRY";
+    state.products = [{ id: "a", name: "Ekmek", price: 35, qty: 1, min: 1 }];
+    el("currencySelect").value = "SYP";
+    el("currencyConvertCheck").checked = false;
+    saveCurrencySetting();
+    assert.strictEqual(state.currency, "SYP");
+    assert.strictEqual(state.products[0].price, 35);
+  } finally {
+    globalThis.document = prevDoc;
+    globalThis.confirm = prevConfirm;
+    state.currency = "TRY";
+    state.products = [];
+  }
+});
+test("saveCurrencySetting: kur geçersizse ya da kullanıcı onaylamazsa hiçbir şey değişmez", () => {
+  const els = {};
+  const mk = () => ({ style: {}, dataset: {}, classList: { add() {}, remove() {} }, textContent: "", innerHTML: "", value: "", checked: true, addEventListener() {}, appendChild() {}, remove() {}, setAttribute() {}, querySelector: () => mk(), querySelectorAll: () => [] });
+  const el = (id) => (els[id] = els[id] || mk());
+  const prevDoc = globalThis.document;
+  const prevConfirm = globalThis.confirm;
+  globalThis.document = { getElementById: el, createElement: () => mk(), body: { appendChild() {} }, querySelector: () => null };
+  try {
+    state.currency = "TRY";
+    state.products = [{ id: "a", name: "Ekmek", price: 35, qty: 1, min: 1 }];
+    el("currencySelect").value = "USD";
+    el("currencyConvertCheck").checked = true;
+    el("currencyConvertRate").value = "abc";
+    globalThis.confirm = () => true;
+    saveCurrencySetting();
+    assert.strictEqual(state.currency, "TRY");
+    assert.strictEqual(state.products[0].price, 35);
+    el("currencyConvertRate").value = "50";
+    globalThis.confirm = () => false;
+    saveCurrencySetting();
+    assert.strictEqual(state.currency, "TRY");
+    assert.strictEqual(state.products[0].price, 35);
+  } finally {
+    globalThis.document = prevDoc;
+    globalThis.confirm = prevConfirm;
+    state.currency = "TRY";
+    state.products = [];
+  }
 });
 
 console.log("\n📦 28-order-planning.js — akıllı sipariş planlaması");
