@@ -466,8 +466,12 @@
       div.textContent = s || "";
       return div.innerHTML;
     }
+    // Para birimi: sunucu `currency` döndürürse (TRY | SYP | USD) o kullanılır, yoksa TRY.
+    const CATALOG_CURRENCIES = { TRY: { symbol: "₺", decimals: 2 }, SYP: { symbol: "ل.س", decimals: 0 }, USD: { symbol: "$", decimals: 2 } };
+    let catalogCurrency = "TRY";
     function formatTL(n) {
-      return (Number(n) || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
+      const c = CATALOG_CURRENCIES[catalogCurrency];
+      return (Number(n) || 0).toLocaleString(catalogCurrency === "TRY" ? "tr-TR" : "en-US", { minimumFractionDigits: c.decimals, maximumFractionDigits: c.decimals }) + " " + c.symbol;
     }
 
     function shadeHex(hex, amount) {
@@ -922,6 +926,10 @@
         businessLat = data.businessLat || null;
         businessLng = data.businessLng || null;
         perKmDeliveryFee = data.perKmDeliveryFee || 0;
+        if (CATALOG_CURRENCIES[data.currency]) catalogCurrency = data.currency;
+        ["feeProductTotal", "feeDeliveryAmount", "feeGrandTotal"].forEach((id) => {
+          document.getElementById(id).textContent = formatTL(0);
+        });
         allProducts = data.products || [];
 
         if (data.businessLogo) {
