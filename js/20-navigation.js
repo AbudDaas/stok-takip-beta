@@ -25,17 +25,17 @@ export function renderAll() {
 
     const filtered = state.products.filter((p) => p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search));
 
-    if (!filtered.length) {
-      list.innerHTML = "";
-      empty.style.display = "block";
-    } else {
-      empty.style.display = "none";
-      list.innerHTML = filtered.map(productRowHtml).join("");
+    // Liste değişmediyse yeniden çizme: her çizimde <img> etiketleri yeniden oluşup
+    // tüm ürün resimlerini yeniden isterdi (yüzlerce boşa istek).
+    const listHtml = filtered.length ? filtered.map(productRowHtml).join("") : "";
+    empty.style.display = filtered.length ? "none" : "block";
+    if (list._lastHtml !== listHtml) {
+      list.innerHTML = listHtml;
+      list._lastHtml = listHtml;
+      list.querySelectorAll(".product-row").forEach((row) => {
+        row.addEventListener("click", () => openModal(row.dataset.id));
+      });
     }
-
-    list.querySelectorAll(".product-row").forEach((row) => {
-      row.addEventListener("click", () => openModal(row.dataset.id));
-    });
 
     // Order list
     const orderList = document.getElementById("orderList");

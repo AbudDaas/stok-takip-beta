@@ -38,6 +38,44 @@ export function isLegacyStorageUrl(url) {
   return typeof url === "string" && /^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com|[^/]*\.firebasestorage\.app)\//.test(url);
 }
 
+// ---- Bozuk resim koruması ----
+// Açılmayan bir resim (örn. eski depo 402 veriyor) her ekran yenilemesinde yeniden
+// istenirse yüzlerce boşa istek olur. Bir kez hata veren adres bu oturumda
+// hatırlanır; sonraki çizimlerde istek atılmaz, yer tutucu gösterilir.
+const brokenImages = new Set();
+
+export function markImageBroken(url) {
+  if (url) brokenImages.add(url);
+}
+
+export function isImageBroken(url) {
+  return brokenImages.has(url);
+}
+
+export function clearBrokenImages() {
+  brokenImages.clear();
+}
+
+/** Resim yüklenemezse adresi kaydedip yerinde yer tutucuya çevirir (tek kez kurulur). */
+export function installImageErrorGuard() {
+  if (installImageErrorGuard.done || typeof document === "undefined") return;
+  installImageErrorGuard.done = true;
+  // "error" olayı yukarı kabarmaz; yakalama (capture) aşamasında dinlenir.
+  document.addEventListener(
+    "error",
+    (e) => {
+      const img = e.target;
+      if (!img || img.tagName !== "IMG" || !img.classList.contains("product-thumb")) return;
+      markImageBroken(img.getAttribute("src"));
+      const ph = document.createElement("div");
+      ph.className = "product-thumb product-thumb-placeholder";
+      ph.innerHTML = '<i class="fa-solid fa-image" aria-hidden="true"></i>';
+      img.replaceWith(ph);
+    },
+    true
+  );
+}
+
 /** Aktif işletmenin kimliği (personel girişinde de sahibin belge kimliği). */
 export function getBusinessId() {
   return (state.originalDocRef || state.docRef).id;

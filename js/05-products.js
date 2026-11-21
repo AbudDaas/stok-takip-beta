@@ -1,5 +1,5 @@
 import { state } from './00-state.js';
-import { getBusinessId, uploadImage } from './32-image-storage.js';
+import { getBusinessId, isImageBroken, uploadImage } from './32-image-storage.js';
 import { save } from './01-firebase-core.js';
 import { escapeHtml, formatQty, formatTL, genId, getStatus, getStatusLabel, mkProduct, printOrderListAsPdf, showPrompt, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
@@ -564,8 +564,8 @@ export function toggleNeedsAlternativeSource(productId) {
 export function productRowHtml(p) {
     const status = getStatus(p);
     const priceLabel = p.unit === "kg" ? formatTL(p.price) + state.t("perKgSuffix") : formatTL(p.price);
-    const thumbHtml = p.image
-      ? `<img src="${escapeHtml(p.image)}" alt="" class="product-thumb" />`
+    const thumbHtml = p.image && !isImageBroken(p.image)
+      ? `<img src="${escapeHtml(p.image)}" alt="" class="product-thumb" loading="lazy" decoding="async" />`
       : `<div class="product-thumb product-thumb-placeholder"><i class="fa-solid fa-image" aria-hidden="true"></i></div>`;
     return `
       <div class="product-row" data-id="${p.id}">

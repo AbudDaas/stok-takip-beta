@@ -4,7 +4,7 @@ import { showToast } from './02-utils.js';
 import { addStaffMember, enterAsOwner, saveOwnerPin, staffPickerGoBack, submitStaffPickerPin, switchUser } from './03-staff-roles.js';
 import { saveFiscalSettings, toggleFiscalEnabled } from './04-fiscal.js';
 import { adjustCases, addCaseBarcodeEntry, addExtraBarcode, addPendingCaseBarcode, addPendingExtraBarcode, addProduct, addWarehouseStock, adjustQty, applyPhysicalCount, closeModal, closePhysicalCountModal, deleteProduct, handleCsvImportFile, handleEditProductPhotoUpload, handleNewProductPhotoUpload, openPhysicalCountModal, printAllQrCodes, printQr, printSelfSourceList, renderPhysicalCountList, resetAll, saveEdit, setQtyManually, transferToShelf, translateMissingProductNames } from './05-products.js';
-import { runImageMigration } from './32-image-storage.js';
+import { installImageErrorGuard, runImageMigration } from './32-image-storage.js';
 import { sendCustomerStatement } from './30-veresiye-statement.js';
 import { addCustomer, closeCustomerModal, deleteCustomer, recordPayment, renderVeresiyeCustomerResults, saveCustomerEdit } from './06-veresiye.js';
 import { checkGiftCardBalance, clearCart, closeQuickBarcodeScan, completeSale, openQuickBarcodeScan, renderCart, renderManualAddResults, setPaymentType, setScanMode, startScan, startScanKasa, stopScan, stopScanKasa } from './07-kasa-checkout.js';
@@ -330,6 +330,7 @@ document.getElementById("onboardingSkipBtn").addEventListener("click", finishOnb
 
 document.getElementById("downloadBackupBtn").addEventListener("click", downloadBackup);
 document.getElementById("migrateImagesBtn").addEventListener("click", runImageMigration);
+installImageErrorGuard();
 
 document.getElementById("staffAddBtn").addEventListener("click", addStaffMember);
 
