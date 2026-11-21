@@ -13,7 +13,7 @@ import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
 import worker from "../r2-worker/worker.js";
-import { buildImageUrl, isLegacyStorageUrl, migrateImagesToR2, uploadImage } from "../js/32-image-storage.js";
+import { buildImageUrl, isLegacyStorageUrl, normalizeWorkerUrl, migrateImagesToR2, uploadImage } from "../js/32-image-storage.js";
 import { applyBackupExtras, buildFullBackup, convertHistory, previewConversion, tagUntaggedRecords, verifyConversion } from "../js/31-history-conversion.js";
 import { buildStatementEntries, buildStatementText } from "../js/30-veresiye-statement.js";
 import { cashByCurrency, computeCashReceipt, formatCashTotals } from "../js/29-mixed-payment.js";
@@ -814,6 +814,11 @@ function withImageEnv(workerUrl, fn) {
     }
   };
 }
+test("normalizeWorkerUrl: https:// yoksa ekler, sondaki / ve boşluğu atar", () => {
+  assert.strictEqual(normalizeWorkerUrl("bakkal-images.abc.workers.dev"), "https://bakkal-images.abc.workers.dev");
+  assert.strictEqual(normalizeWorkerUrl("  https://x.workers.dev/ "), "https://x.workers.dev");
+  assert.strictEqual(normalizeWorkerUrl(""), "");
+});
 test("buildImageUrl / isLegacyStorageUrl", () => {
   assert.strictEqual(buildImageUrl("https://w.dev", "product-images/b/p.jpg", 5), "https://w.dev/img/product-images/b/p.jpg?v=5");
   assert.ok(isLegacyStorageUrl("https://firebasestorage.googleapis.com/v0/b/x/o/y?alt=media"));

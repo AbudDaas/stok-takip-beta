@@ -13,7 +13,15 @@ import { showToast } from './02-utils.js';
 export function getImageWorkerUrl() {
   const url = typeof imageConfig !== "undefined" && imageConfig && imageConfig.workerUrl ? String(imageConfig.workerUrl).trim() : "";
   if (!url || url.indexOf("BURAYA") === 0) return "";
-  return url.replace(/\/+$/, "");
+  // "https://" yazılmamışsa ekle; yoksa adres GitHub Pages'e göre göreli sayılır ve istek 405 alır.
+  return normalizeWorkerUrl(url);
+}
+
+/** Saf: boşlukları atar, https:// ekler (yoksa), sondaki "/" işaretlerini siler. */
+export function normalizeWorkerUrl(raw) {
+  let url = String(raw || "").trim().replace(/\/+$/, "");
+  if (url && !/^https?:\/\//i.test(url)) url = "https://" + url.replace(/^\/+/, "");
+  return url;
 }
 
 export function isR2Configured() {
