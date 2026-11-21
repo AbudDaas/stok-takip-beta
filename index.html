@@ -1205,6 +1205,11 @@
           <label id="currencyConvertRateLabel" class="field-label" for="currencyConvertRate"></label>
           <input id="currencyConvertRate" type="text" inputmode="decimal" />
           <p id="currencyConvertExample" class="card-subtitle" aria-live="polite"></p>
+          <label class="checkbox-row">
+            <input id="currencyConvertHistoryCheck" type="checkbox" />
+            <span data-i18n="historyConvertCheckLabel">Geçmiş kayıtları da çevir (satış, veresiye borcu, tedarikçi borcu, gider, iade)</span>
+          </label>
+          <p class="card-subtitle" data-i18n="historyConvertCheckHint">İşaretlersen dönüşümden önce otomatik yedek alınır (bulut + bilgisayara dosya). Kayıtlar kurla çevrilip toplamlar doğrulanır; tutmazsa hiçbir şey değişmez.</p>
           <p class="card-subtitle" data-i18n="currencyConvertWarning">Geçmiş satışlar, veresiye borçları, giderler ve tedarikçi borçları dönüştürülmez; eski birimde kalır.</p>
         </div>
         <button id="saveCurrencyBtn" class="btn btn-primary btn-block" style="margin-top:8px;">

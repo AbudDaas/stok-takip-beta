@@ -1,4 +1,5 @@
 import { state } from './00-state.js';
+import { applyBackupExtras, buildFullBackup } from './31-history-conversion.js';
 import { save } from './01-firebase-core.js';
 import { escapeHtml, isChainConfigured, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
@@ -165,22 +166,7 @@ export function maybeCreateDailyBackup() {
     } catch (e) {}
     if (lastBackupDate === todayKey) return; // bu cihazda bugün zaten yedek alındı
 
-    const backupData = {
-      products: state.products,
-      sales: state.sales,
-      customers: state.customers,
-      payments: state.payments,
-      dailyResetConfig: state.dailyResetConfig,
-      breadLog: state.breadLog,
-      priceChangeLog: state.priceChangeLog,
-      auditLog: state.auditLog,
-      staffMembers: state.staffMembers,
-      suppliers: state.suppliers,
-      supplierTransactions: state.supplierTransactions,
-      returns: state.returns,
-      expenses: state.expenses,
-      savedAt: new Date().toISOString()
-    };
+    const backupData = buildFullBackup(state);
 
     state.docRef
       .collection("backups")
@@ -230,7 +216,7 @@ export function renderAutoBackups(backups) {
           <div class="branch-row">
             <div class="branch-info">
               <p class="branch-name">${escapeHtml(b.id)}</p>
-              <p class="branch-meta">${productCount} ürün</p>
+              <p class="branch-meta">${productCount} ürün · ${(b.sales || []).length} satış · ${(b.supplierTransactions || []).length + (b.payments || []).length} borç/ödeme</p>
             </div>
             <button class="branch-view-btn" data-id="${b.id}">${state.t("autoBackupRestoreBtn")}</button>
           </div>`;
@@ -260,6 +246,7 @@ export function restoreFromAutoBackup(backupId, backups) {
     state.supplierTransactions = backup.supplierTransactions || [];
     state.returns = backup.returns || [];
     state.expenses = backup.expenses || [];
+    applyBackupExtras(backup);
 
     logAudit("Yedekten geri yüklendi", backupId);
     save();
@@ -268,16 +255,7 @@ export function restoreFromAutoBackup(backupId, backups) {
   }
 
 export function downloadBackup() {
-    const backup = {
-      exportedAt: new Date().toISOString(),
-      products: state.products,
-      sales: state.sales,
-      customers: state.customers,
-      payments: state.payments,
-      dailyResetConfig: state.dailyResetConfig,
-      breadLog: state.breadLog,
-      priceChangeLog: state.priceChangeLog
-    };
+    const backup = { exportedAt: new Date().toISOString(), ...buildFullBackup(state) };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

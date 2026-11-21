@@ -12,7 +12,7 @@ const KNOWN_GLOBALS = new Set([
   "clearTimeout", "requestAnimationFrame", "caches", "Html5Qrcode", "chainConfig",
   "bulkScanConfig", "pushConfig", "adminConfig", "firebaseConfig", "Math", "Date",
   "JSON", "Object", "Array", "String", "Number", "Boolean", "Promise", "Map", "Set",
-  "RegExp", "Error", "isNaN", "parseInt", "parseFloat", "encodeURIComponent",
+  "RegExp", "undefined", "Error", "isNaN", "parseInt", "parseFloat", "encodeURIComponent",
   "decodeURIComponent", "Intl", "Symbol", "WeakMap", "structuredClone", "AbortController",
   "CustomEvent", "Event", "Image", "clearInterval", "setInterval", "globalThis",
   "SpeechRecognition", "webkitSpeechRecognition", "speechSynthesis", "navigator",

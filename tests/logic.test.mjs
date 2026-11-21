@@ -12,6 +12,7 @@ import assert from "assert";
 import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
+import { applyBackupExtras, buildFullBackup, convertHistory, previewConversion, tagUntaggedRecords, verifyConversion } from "../js/31-history-conversion.js";
 import { buildStatementEntries, buildStatementText } from "../js/30-veresiye-statement.js";
 import { cashByCurrency, computeCashReceipt, formatCashTotals } from "../js/29-mixed-payment.js";
 import { ORDER_DEFAULTS, buildSalesIndex, findSlowMovers, planOrder, roundOrderQty, soldQuantities, velocityFrom } from "../js/28-order-planning.js";
@@ -396,6 +397,7 @@ test("addRateEntry para birimini kaydeder", () => {
 test("saveCurrencySetting: 35 ₺ ürün, kur 1 USD = 50 ₺ → 0,70 $ olur (uçtan uca)", () => {
   const els = {};
   const mk = () => ({ style: {}, dataset: {}, classList: { add() {}, remove() {} }, textContent: "", innerHTML: "", value: "", checked: true, addEventListener() {}, appendChild() {}, remove() {}, setAttribute() {}, querySelector: () => mk(), querySelectorAll: () => [] });
+  els.currencyConvertHistoryCheck = Object.assign(mk(), { checked: false });
   const el = (id) => (els[id] = els[id] || mk());
   const prevDoc = globalThis.document;
   const prevConfirm = globalThis.confirm;
@@ -439,6 +441,7 @@ test("saveCurrencySetting: 35 ₺ ürün, kur 1 USD = 50 ₺ → 0,70 $ olur (u�
 test("saveCurrencySetting: dönüştür işareti kapalıysa fiyatlar değişmez (eski davranış)", () => {
   const els = {};
   const mk = () => ({ style: {}, dataset: {}, classList: { add() {}, remove() {} }, textContent: "", innerHTML: "", value: "", checked: true, addEventListener() {}, appendChild() {}, remove() {}, setAttribute() {}, querySelector: () => mk(), querySelectorAll: () => [] });
+  els.currencyConvertHistoryCheck = Object.assign(mk(), { checked: false });
   const el = (id) => (els[id] = els[id] || mk());
   const prevDoc = globalThis.document;
   const prevConfirm = globalThis.confirm;
@@ -462,6 +465,7 @@ test("saveCurrencySetting: dönüştür işareti kapalıysa fiyatlar değişmez 
 test("saveCurrencySetting: kur geçersizse ya da kullanıcı onaylamazsa hiçbir şey değişmez", () => {
   const els = {};
   const mk = () => ({ style: {}, dataset: {}, classList: { add() {}, remove() {} }, textContent: "", innerHTML: "", value: "", checked: true, addEventListener() {}, appendChild() {}, remove() {}, setAttribute() {}, querySelector: () => mk(), querySelectorAll: () => [] });
+  els.currencyConvertHistoryCheck = Object.assign(mk(), { checked: false });
   const el = (id) => (els[id] = els[id] || mk());
   const prevDoc = globalThis.document;
   const prevConfirm = globalThis.confirm;
@@ -627,6 +631,177 @@ test("veresiye ekstresi: karışık para biriminde yürüyen bakiye yazılmaz", 
   const e = buildStatementEntries([{ paymentType: "veresiye", customerId: "c1", timestamp: "2026-11-01T10:00:00Z", total: 5, currency: "USD" }],
     [{ customerId: "c1", timestamp: "2026-11-02T10:00:00Z", amount: 100 }], "c1", "SYP");
   assert.strictEqual(e[0].balance, null);
+});
+
+console.log("\n📦 31-history-conversion.js — geçmiş dönüşümü ve yedek");
+function sampleData() {
+  return {
+    sales: [
+      { id: "s1", paymentType: "veresiye", customerId: "c1", total: 100, subtotal: 100, discount: 0, cost: 60, profit: 40, items: [{ name: "A", qty: 2, price: 50, costPrice: 30 }], usdRate: 50 },
+      { id: "s2", paymentType: "nakit", total: 85, subtotal: 85, discount: 0, cost: 50, profit: 35, items: [], payments: [{ method: "nakit", currency: "USD", amount: 2, rate: 50, valueLocal: 100 }, { method: "nakit", currency: "TRY", amount: 0, valueLocal: 0 }], cashReceived: 100, changeGiven: 15 },
+      { id: "s3", paymentType: "nakit", total: 10, currency: "USD", items: [] }
+    ],
+    payments: [{ id: "p1", customerId: "c1", amount: 40 }],
+    supplierTransactions: [{ id: "t1", type: "debt", amount: 500 }, { id: "t2", type: "payment", amount: 200 }],
+    expenses: [{ id: "e1", amount: 75 }],
+    returns: [{ id: "r1", totalRefund: 50, items: [{ name: "A", qty: 1, price: 50 }] }],
+    zReports: [{ id: "z1", expected: 185, actual: 180, difference: -5 }],
+    giftCards: [{ id: "g1", initialAmount: 100, remainingBalance: 60 }]
+  };
+}
+test("convertHistory: ₺→ل.س (kur 1 ₺ = 300): tutarlar çarpılır, USD tutarı değişmez, etiketlenir", () => {
+  const d = sampleData();
+  const r = convertHistory(d, 300, "TRY", "SYP");
+  assert.strictEqual(d.sales[0].total, 30000);
+  assert.strictEqual(d.sales[0].items[0].price, 15000);
+  assert.strictEqual(d.sales[0].currency, "SYP");
+  assert.strictEqual(d.sales[0].convertedFrom.currency, "TRY");
+  assert.strictEqual(d.sales[0].convertedFrom.usdRate, 50);
+  assert.strictEqual(d.sales[1].payments[0].amount, 2); // USD aynen
+  assert.strictEqual(d.sales[1].payments[0].valueLocal, 30000);
+  assert.strictEqual(d.sales[1].changeGiven, 4500);
+  assert.strictEqual(d.payments[0].amount, 12000);
+  assert.strictEqual(d.supplierTransactions[0].amount, 150000);
+  assert.strictEqual(d.expenses[0].amount, 22500);
+  assert.strictEqual(d.returns[0].totalRefund, 15000);
+  assert.strictEqual(d.zReports[0].difference, -1500);
+  assert.strictEqual(d.giftCards[0].remainingBalance, 18000);
+  assert.strictEqual(r.counts.sales, 2);
+  assert.strictEqual(r.skipped, 1); // USD satışı atlandı
+  assert.strictEqual(d.sales[2].total, 10);
+  assert.ok(verifyConversion(r, 300, "SYP").ok);
+});
+test("convertHistory: kur 1 USD = 50 ₺ ile ₺→$: 100 ₺ = 2 $ ve doğrulama geçer", () => {
+  const d = sampleData();
+  const r = convertHistory(d, 1 / 50, "TRY", "USD");
+  assert.strictEqual(d.sales[0].total, 2);
+  assert.strictEqual(d.supplierTransactions[0].amount, 10);
+  assert.ok(verifyConversion(r, 1 / 50, "USD").ok);
+});
+test("verifyConversion: bozuk dönüşümü yakalar", () => {
+  const d = sampleData();
+  const r = convertHistory(d, 300, "TRY", "SYP");
+  r.sums.supplierDebt.after += 5000;
+  const v = verifyConversion(r, 300, "SYP");
+  assert.ok(!v.ok);
+  assert.strictEqual(v.problems[0].key, "supplierDebt");
+});
+test("previewConversion gerçek veriye dokunmaz", () => {
+  const prevSales = state.sales;
+  state.sales = sampleData().sales;
+  const p = previewConversion(state, 300, "TRY", "SYP");
+  assert.strictEqual(state.sales[0].total, 100);
+  assert.strictEqual(p.counts.sales, 2);
+  assert.ok(p.verification.ok);
+  state.sales = prevSales;
+});
+test("aynı kayıt iki kez çevrilmez (etiketli kayıt hedef birimdeyse atlanır)", () => {
+  const d = sampleData();
+  convertHistory(d, 300, "TRY", "SYP");
+  const again = convertHistory(d, 300, "TRY", "SYP");
+  assert.strictEqual(again.counts.sales, 0);
+  assert.strictEqual(d.sales[0].total, 30000);
+});
+test("tagUntaggedRecords: birimi olmayan kayıtlara birim yazar", () => {
+  const d = sampleData();
+  const n = tagUntaggedRecords(d, "TRY");
+  assert.ok(n >= 8);
+  assert.strictEqual(d.sales[0].currency, "TRY");
+  assert.strictEqual(d.sales[2].currency, "USD");
+});
+test("buildFullBackup: borç, tedarikçi, gider, iade, hediye kartı ve kur geçmişini içerir", () => {
+  const keys = ["supplierTransactions", "suppliers", "payments", "expenses", "returns", "giftCards", "zReports", "exchangeRates", "currency"];
+  const b = buildFullBackup({ ...sampleData(), suppliers: [{ id: "x" }], exchangeRates: [{ rate: 1 }], currency: "TRY", products: [] });
+  keys.forEach((k) => assert.ok(k in b, k));
+  assert.ok(b.savedAt);
+});
+test("applyBackupExtras: para birimi ve kur geçmişi geri yüklenir", () => {
+  const target = { currency: "SYP", exchangeRates: [], giftCards: [] };
+  applyBackupExtras({ currency: "TRY", exchangeRates: [{ rate: 50 }], giftCards: [{ id: "g" }], perKmDeliveryFee: 3 }, target);
+  assert.strictEqual(target.currency, "TRY");
+  assert.strictEqual(target.exchangeRates.length, 1);
+  assert.strictEqual(target.perKmDeliveryFee, 3);
+});
+
+function currencyEnv(historyChecked) {
+  const els = {};
+  const mk = () => ({ style: {}, dataset: {}, classList: { add() {}, remove() {} }, textContent: "", innerHTML: "", value: "", checked: true, click() {}, addEventListener() {}, appendChild() {}, remove() {}, setAttribute() {}, querySelector: () => mk(), querySelectorAll: () => [] });
+  els.currencyConvertHistoryCheck = Object.assign(mk(), { checked: historyChecked });
+  const el = (id) => (els[id] = els[id] || mk());
+  globalThis.document = { getElementById: el, createElement: () => mk(), body: { appendChild() {}, removeChild() {} }, querySelector: () => null };
+  globalThis.confirm = () => true;
+  return el;
+}
+test("saveCurrencySetting + geçmiş: yedek alınır, borçlar kurla çevrilir (uçtan uca)", async () => {
+  const prev = { doc: globalThis.document, confirm: globalThis.confirm, docRef: state.docRef };
+  const el = currencyEnv(true);
+  let cloudBackup = null;
+  state.docRef = { collection: () => ({ doc: (id) => ({ set: async (data) => { cloudBackup = { id, data }; } }) }), set: () => Promise.resolve() };
+  try {
+    const d = sampleData();
+    state.currency = "TRY";
+    state.exchangeRates = [];
+    state.products = [{ id: "a", name: "A", price: 50, qty: 1, min: 1 }];
+    Object.assign(state, { sales: d.sales, payments: d.payments, supplierTransactions: d.supplierTransactions, expenses: d.expenses, returns: d.returns, zReports: d.zReports, giftCards: d.giftCards });
+    el("currencySelect").value = "SYP";
+    el("currencyConvertCheck").checked = true;
+    el("currencyConvertRate").value = "300";
+    saveCurrencySetting();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(cloudBackup && cloudBackup.id.startsWith("pre-convert-"));
+    assert.strictEqual(cloudBackup.data.supplierTransactions[0].amount, 500); // yedek ESKİ değerleri tutar
+    assert.strictEqual(cloudBackup.data.sales[0].total, 100);
+    assert.strictEqual(state.currency, "SYP");
+    assert.strictEqual(state.sales[0].total, 30000);
+    assert.strictEqual(state.supplierTransactions[0].amount, 150000);
+    assert.strictEqual(state.payments[0].amount, 12000);
+    assert.strictEqual(state.products[0].price, 15000);
+  } finally {
+    Object.assign(state, { currency: "TRY", exchangeRates: [], products: [], sales: [], payments: [], supplierTransactions: [], expenses: [], returns: [], zReports: [], giftCards: [], docRef: prev.docRef });
+    globalThis.document = prev.doc;
+    globalThis.confirm = prev.confirm;
+  }
+});
+test("saveCurrencySetting + geçmiş: yedek alınamazsa HİÇBİR ŞEY değişmez", async () => {
+  const prev = { doc: globalThis.document, confirm: globalThis.confirm, docRef: state.docRef };
+  const el = currencyEnv(true);
+  globalThis.document.createElement = () => { throw new Error("indirme yok"); };
+  state.docRef = { collection: () => ({ doc: () => ({ set: async () => { throw new Error("boyut"); } }) }), set: () => Promise.resolve() };
+  try {
+    state.currency = "TRY";
+    state.supplierTransactions = [{ id: "t1", type: "debt", amount: 500 }];
+    state.products = [{ id: "a", name: "A", price: 50, qty: 1, min: 1 }];
+    el("currencySelect").value = "SYP";
+    el("currencyConvertCheck").checked = true;
+    el("currencyConvertRate").value = "300";
+    saveCurrencySetting();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.strictEqual(state.currency, "TRY");
+    assert.strictEqual(state.supplierTransactions[0].amount, 500);
+    assert.strictEqual(state.products[0].price, 50);
+  } finally {
+    Object.assign(state, { currency: "TRY", products: [], supplierTransactions: [], docRef: prev.docRef });
+    globalThis.document = prev.doc;
+    globalThis.confirm = prev.confirm;
+  }
+});
+test("saveCurrencySetting: geçmiş dönüştürülmezse eski kayıtlar etiketlenir (karışmaz)", () => {
+  const prev = { doc: globalThis.document, confirm: globalThis.confirm };
+  const el = currencyEnv(false);
+  try {
+    state.currency = "TRY";
+    state.sales = [{ id: "s", total: 100, items: [], paymentType: "nakit" }];
+    el("currencySelect").value = "SYP";
+    el("currencyConvertCheck").checked = false;
+    saveCurrencySetting();
+    assert.strictEqual(state.currency, "SYP");
+    assert.strictEqual(state.sales[0].total, 100);
+    assert.strictEqual(state.sales[0].currency, "TRY");
+  } finally {
+    Object.assign(state, { currency: "TRY", sales: [] });
+    globalThis.document = prev.doc;
+    globalThis.confirm = prev.confirm;
+  }
 });
 
 console.log(`\n${passed} test geçti, ${failed} test başarısız.\n`);
