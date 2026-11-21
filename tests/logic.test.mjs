@@ -900,6 +900,9 @@ test("worker: yetkisiz PUT 403, yetkili PUT kaydeder, GET herkese açık", async
     assert.strictEqual(res.status, 403);
     res = await worker.fetch(imgReq("PUT", path, { body: "abc", headers: { "Content-Type": "image/jpeg", Authorization: "Bearer BAD" } }), env);
     assert.strictEqual(res.status, 403);
+    assert.ok((await res.json()).reason.includes("Firestore 403"));
+    const noVar = await worker.fetch(imgReq("PUT", path, { body: "abc", headers: { "Content-Type": "image/jpeg", Authorization: "Bearer GOOD" } }), { ...env, FIREBASE_PROJECT_ID: "" });
+    assert.ok((await noVar.json()).reason.includes("FIREBASE_PROJECT_ID"));
     res = await worker.fetch(imgReq("PUT", path, { body: "abc", headers: { "Content-Type": "image/jpeg", Authorization: "Bearer GOOD" } }), env);
     assert.strictEqual(res.status, 200);
     res = await worker.fetch(imgReq("GET", path), env);

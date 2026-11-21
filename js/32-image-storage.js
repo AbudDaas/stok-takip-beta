@@ -62,7 +62,16 @@ export async function uploadImage(path, blob) {
     headers: { Authorization: `Bearer ${idToken}`, "Content-Type": blob.type || "image/jpeg" },
     body: blob
   });
-  if (!res.ok) throw new Error(`Görsel yüklenemedi (${res.status})`);
+  if (!res.ok) {
+    let reason = "";
+    try {
+      const body = await res.json();
+      reason = body && body.reason ? ` — ${body.reason}` : "";
+    } catch (e) {
+      // gövde okunamadı
+    }
+    throw new Error(`Görsel yüklenemedi (${res.status})${reason}`);
+  }
   return buildImageUrl(base, path, Date.now());
 }
 
