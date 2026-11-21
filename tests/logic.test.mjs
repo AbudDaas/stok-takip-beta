@@ -12,6 +12,8 @@ import assert from "assert";
 import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
+import worker from "../r2-worker/worker.js";
+import { buildImageUrl, isLegacyStorageUrl, migrateImagesToR2, uploadImage } from "../js/32-image-storage.js";
 import { applyBackupExtras, buildFullBackup, convertHistory, previewConversion, tagUntaggedRecords, verifyConversion } from "../js/31-history-conversion.js";
 import { buildStatementEntries, buildStatementText } from "../js/30-veresiye-statement.js";
 import { cashByCurrency, computeCashReceipt, formatCashTotals } from "../js/29-mixed-payment.js";
@@ -30,26 +32,15 @@ import { measurePerf, logPerfEntry, getPerfLog, summarizePerfLog, clearPerfLog }
 let passed = 0;
 let failed = 0;
 
-const pendingTests = [];
+const asyncQueue = [];
 function test(name, fn) {
+  // async testler sırayla (birbirinin document/fetch taklitlerini bozmadan) en sonda çalıştırılır
+  if (fn.constructor && fn.constructor.name === "AsyncFunction") {
+    asyncQueue.push({ name, fn });
+    return;
+  }
   try {
-    const result = fn();
-    if (result && typeof result.then === "function") {
-      // async test: sonucu en sonda toplanır
-      pendingTests.push(
-        result.then(
-          () => {
-            console.log("  ✅", name);
-            passed++;
-          },
-          (e) => {
-            console.log("  ❌", name, "-", e.message);
-            failed++;
-          }
-        )
-      );
-      return;
-    }
+    fn();
     console.log("  ✅", name);
     passed++;
   } catch (e) {
@@ -264,7 +255,6 @@ test("renderMovementRows özel karakterleri kaçırır (XSS) ve eksik stok uyar�
   assert.ok(html.includes("stock-move-warn"));
 });
 
-await Promise.all(pendingTests);
 
 console.log("\n📦 26-case-units.js — koli / adet dönüşümü");
 test("getCaseSize önce elle girilen koli içi adedi kullanır", () => {
@@ -765,7 +755,8 @@ test("saveCurrencySetting + geçmiş: yedek alınır, borçlar kurla çevrilir (
 test("saveCurrencySetting + geçmiş: yedek alınamazsa HİÇBİR ŞEY değişmez", async () => {
   const prev = { doc: globalThis.document, confirm: globalThis.confirm, docRef: state.docRef };
   const el = currencyEnv(true);
-  globalThis.document.createElement = () => { throw new Error("indirme yok"); };
+  const origCreate = globalThis.document.createElement;
+  globalThis.document.createElement = (tag) => { if (tag === "a") throw new Error("indirme yok"); return origCreate(tag); };
   state.docRef = { collection: () => ({ doc: () => ({ set: async () => { throw new Error("boyut"); } }) }), set: () => Promise.resolve() };
   try {
     state.currency = "TRY";
@@ -804,5 +795,145 @@ test("saveCurrencySetting: geçmiş dönüştürülmezse eski kayıtlar etiketle
   }
 });
 
+console.log("\n📦 32-image-storage.js + r2-worker — görsel depolama");
+function withImageEnv(workerUrl, fn) {
+  return async () => {
+    const prev = { cfg: globalThis.imageConfig, fetch: globalThis.fetch, user: state.currentUser, docRef: state.docRef, orig: state.originalDocRef };
+    globalThis.imageConfig = { workerUrl };
+    state.currentUser = { getIdToken: async () => "TOKEN" };
+    state.docRef = { id: "biz123456789", set: async () => {} };
+    state.originalDocRef = null;
+    try {
+      await fn();
+    } finally {
+      globalThis.imageConfig = prev.cfg;
+      globalThis.fetch = prev.fetch;
+      state.currentUser = prev.user;
+      state.docRef = prev.docRef;
+      state.originalDocRef = prev.orig;
+    }
+  };
+}
+test("buildImageUrl / isLegacyStorageUrl", () => {
+  assert.strictEqual(buildImageUrl("https://w.dev", "product-images/b/p.jpg", 5), "https://w.dev/img/product-images/b/p.jpg?v=5");
+  assert.ok(isLegacyStorageUrl("https://firebasestorage.googleapis.com/v0/b/x/o/y?alt=media"));
+  assert.ok(!isLegacyStorageUrl("https://w.workers.dev/img/a/b/c.jpg?v=1"));
+  assert.ok(!isLegacyStorageUrl(""));
+});
+test("uploadImage: R2 ayarlıysa Worker'a PUT eder, belirteç ve adres doğru", withImageEnv("https://w.workers.dev/", async () => {
+  let call = null;
+  globalThis.fetch = async (url, init) => { call = { url, init }; return { ok: true, status: 200 }; };
+  const url = await uploadImage("product-images/biz123456789/p1.jpg", new Blob(["x"], { type: "image/jpeg" }));
+  assert.strictEqual(call.url, "https://w.workers.dev/img/product-images/biz123456789/p1.jpg");
+  assert.strictEqual(call.init.method, "PUT");
+  assert.strictEqual(call.init.headers.Authorization, "Bearer TOKEN");
+  assert.ok(url.startsWith("https://w.workers.dev/img/product-images/biz123456789/p1.jpg?v="));
+}));
+test("uploadImage: R2 ayarı boşsa eski Firebase Storage yolu kullanılır", withImageEnv("", async () => {
+  const prevStorage = state.storage;
+  const calls = [];
+  state.storage = { ref: (path) => ({ put: async () => calls.push(path), getDownloadURL: async () => "https://firebasestorage.googleapis.com/x" }) };
+  const url = await uploadImage("product-images/b/p.jpg", new Blob(["x"]));
+  state.storage = prevStorage;
+  assert.deepStrictEqual(calls, ["product-images/b/p.jpg"]);
+  assert.ok(url.includes("firebasestorage"));
+}));
+test("uploadImage: sunucu hata dönerse fırlatır", withImageEnv("https://w.workers.dev", async () => {
+  globalThis.fetch = async () => ({ ok: false, status: 403 });
+  await assert.rejects(() => uploadImage("product-images/b/p.jpg", new Blob(["x"])));
+}));
+test("migrateImagesToR2: eski adresleri taşır, yenileri atlar", withImageEnv("https://w.workers.dev", async () => {
+  const prevProducts = state.products;
+  state.products = [
+    { id: "pa1", name: "A", image: "https://firebasestorage.googleapis.com/v0/b/x/o/a?alt=media" },
+    { id: "pb1", name: "B", image: "https://w.workers.dev/img/product-images/biz123456789/pb1.jpg?v=1" },
+    { id: "pc1", name: "C" }
+  ];
+  globalThis.fetch = async (url, init) => (init && init.method === "PUT" ? { ok: true, status: 200 } : { ok: true, status: 200, blob: async () => new Blob(["img"], { type: "image/jpeg" }) });
+  const r = await migrateImagesToR2();
+  const moved = state.products[0].image;
+  state.products = prevProducts;
+  assert.strictEqual(r.migrated, 1);
+  assert.strictEqual(r.skipped, 1);
+  assert.ok(moved.startsWith("https://w.workers.dev/img/product-images/biz123456789/pa1.jpg?v="));
+}));
+test("migrateImagesToR2: eski depo 402 veriyorsa durur ve hiçbir adresi bozmaz", withImageEnv("https://w.workers.dev", async () => {
+  const prevProducts = state.products;
+  const old = "https://firebasestorage.googleapis.com/v0/b/x/o/a?alt=media";
+  state.products = Array.from({ length: 12 }, (_, i) => ({ id: "p" + i + "xxxx", name: "P" + i, image: old }));
+  let fetches = 0;
+  globalThis.fetch = async () => { fetches++; return { ok: false, status: 402 }; };
+  const r = await migrateImagesToR2();
+  const intact = state.products.every((p) => p.image === old);
+  state.products = prevProducts;
+  assert.ok(r.aborted);
+  assert.strictEqual(r.migrated, 0);
+  assert.ok(intact);
+  assert.ok(fetches < 12);
+}));
+
+function r2Env() {
+  const store = new Map();
+  return {
+    store,
+    IMAGES: {
+      get: async (k) => (store.has(k) ? { body: store.get(k).data, httpMetadata: { contentType: store.get(k).type }, httpEtag: '"e"' } : null),
+      put: async (k, data, opt) => store.set(k, { data, type: opt.httpMetadata.contentType }),
+      delete: async (k) => store.delete(k)
+    },
+    FIREBASE_PROJECT_ID: "bakkal-stok"
+  };
+}
+const imgReq = (method, path, opts = {}) => new Request("https://w.dev" + path, { method, ...opts });
+test("worker: yetkisiz PUT 403, yetkili PUT kaydeder, GET herkese açık", async () => {
+  const env = r2Env();
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init) => ({ status: init && init.headers && init.headers.Authorization === "Bearer GOOD" ? 200 : 403 });
+  try {
+    const path = "/img/product-images/biz123456789/p1.jpg";
+    let res = await worker.fetch(imgReq("PUT", path, { body: "abc", headers: { "Content-Type": "image/jpeg" } }), env);
+    assert.strictEqual(res.status, 403);
+    res = await worker.fetch(imgReq("PUT", path, { body: "abc", headers: { "Content-Type": "image/jpeg", Authorization: "Bearer BAD" } }), env);
+    assert.strictEqual(res.status, 403);
+    res = await worker.fetch(imgReq("PUT", path, { body: "abc", headers: { "Content-Type": "image/jpeg", Authorization: "Bearer GOOD" } }), env);
+    assert.strictEqual(res.status, 200);
+    res = await worker.fetch(imgReq("GET", path), env);
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.headers.get("Cache-Control").includes("immutable"));
+    assert.strictEqual(await res.text(), "abc");
+  } finally {
+    globalThis.fetch = prevFetch;
+  }
+});
+test("worker: geçersiz yol, tür ve boyut reddedilir; CORS ön kontrolü çalışır", async () => {
+  const env = r2Env();
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({ status: 200 });
+  try {
+    const auth = { Authorization: "Bearer GOOD" };
+    assert.strictEqual((await worker.fetch(imgReq("GET", "/img/../../etc/passwd"), env)).status, 404);
+    assert.strictEqual((await worker.fetch(imgReq("GET", "/img/other/biz123456789/p.jpg"), env)).status, 404);
+    assert.strictEqual((await worker.fetch(imgReq("PUT", "/img/product-images/biz123456789/p.jpg", { body: "x", headers: { ...auth, "Content-Type": "text/html" } }), env)).status, 415);
+    assert.strictEqual((await worker.fetch(imgReq("PUT", "/img/product-images/biz123456789/p.jpg", { body: new Uint8Array(1024 * 1024 + 1), headers: { ...auth, "Content-Type": "image/jpeg" } }), env)).status, 413);
+    const pre = await worker.fetch(imgReq("OPTIONS", "/img/product-images/biz123456789/p.jpg"), env);
+    assert.strictEqual(pre.status, 204);
+    assert.ok(pre.headers.get("Access-Control-Allow-Methods").includes("PUT"));
+    assert.strictEqual((await worker.fetch(imgReq("GET", "/img/product-images/biz123456789/yok.jpg"), env)).status, 404);
+  } finally {
+    globalThis.fetch = prevFetch;
+  }
+});
+
+console.log("\n⏱️ async testler");
+for (const { name, fn } of asyncQueue) {
+  try {
+    await fn();
+    console.log("  ✅", name);
+    passed++;
+  } catch (e) {
+    console.log("  ❌", name, "-", e.message);
+    failed++;
+  }
+}
 console.log(`\n${passed} test geçti, ${failed} test başarısız.\n`);
 process.exit(failed > 0 ? 1 : 0);

@@ -1,5 +1,6 @@
 import { state } from './00-state.js';
 import { applyBackupExtras, buildFullBackup } from './31-history-conversion.js';
+import { getBusinessId, uploadImage } from './32-image-storage.js';
 import { save } from './01-firebase-core.js';
 import { escapeHtml, isChainConfigured, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
@@ -503,11 +504,7 @@ export function handleLogoUpload(file) {
             // yüklüyoruz — Firestore belgesine SADECE küçük bir bağlantı
             // (URL) kaydediliyor, büyük bir base64 metni DEĞİL. Bu,
             // katalog sayfasının yanıt boyutunu önemli ölçüde küçültür.
-            const businessId = (state.originalDocRef || state.docRef).id;
-            const ref = state.storage.ref(`business-logos/${businessId}/logo.jpg`);
-            ref
-              .put(blob)
-              .then(() => ref.getDownloadURL())
+            uploadImage(`business-logos/${getBusinessId()}/logo.jpg`, blob)
               .then((url) => {
                 state.businessLogo = url;
                 const preview = document.getElementById("businessLogoPreview");

@@ -1,4 +1,5 @@
 import { state } from './00-state.js';
+import { getBusinessId, uploadImage } from './32-image-storage.js';
 import { save } from './01-firebase-core.js';
 import { escapeHtml, formatQty, formatTL, genId, getStatus, getStatusLabel, mkProduct, printOrderListAsPdf, showPrompt, showToast } from './02-utils.js';
 import { logAudit } from './03-staff-roles.js';
@@ -141,12 +142,8 @@ function resizeImageForUpload(file) {
  * kolayca aşardı). Firestore'a sadece küçük bir bağlantı (URL) kaydedilir.
  */
 async function uploadImageToStorage(file, productId) {
-    if (!state.storage) throw new Error("Storage etkin değil");
-    const businessId = (state.originalDocRef || state.docRef).id;
     const blob = await resizeImageForUpload(file);
-    const ref = state.storage.ref(`product-images/${businessId}/${productId}.jpg`);
-    await ref.put(blob);
-    return await ref.getDownloadURL();
+    return await uploadImage(`product-images/${getBusinessId()}/${productId}.jpg`, blob);
   }
 
 export function handleNewProductPhotoUpload(file) {

@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://www.gstatic.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://firebasestorage.googleapis.com; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.workers.dev https://identitytoolkit.googleapis.com https://www.gstatic.com wss://*.firebaseio.com; frame-src 'none'; object-src 'none'; base-uri 'self';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://www.gstatic.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://firebasestorage.googleapis.com https://*.workers.dev; font-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.workers.dev https://identitytoolkit.googleapis.com https://www.gstatic.com wss://*.firebaseio.com; frame-src 'none'; object-src 'none'; base-uri 'self';" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Bakkal Stok Takip</title>
 <meta name="theme-color" content="#1F3864" />
@@ -1236,6 +1236,15 @@
       </div>
 
       <div class="card">
+        <p class="card-title" data-i18n="imageMigrateTitle">🖼️ Görsel Depolama (R2)</p>
+        <p class="card-subtitle" data-i18n="imageMigrateSubtitle">Eski Firebase Storage'daki ürün fotoğraflarını ve logoyu yeni depoya taşır. Eski depo erişilebilir olmalı.</p>
+        <button id="migrateImagesBtn" class="btn btn-block">
+          <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> <span data-i18n="imageMigrateBtn">Görselleri yeni depoya taşı</span>
+        </button>
+        <p id="imageMigrateStatus" class="card-subtitle" aria-live="polite"></p>
+      </div>
+
+      <div class="card">
         <p class="card-title" data-i18n="autoBackupTitle">🛡️ Otomatik Bulut Yedekleri</p>
         <p class="card-subtitle" data-i18n="autoBackupSubtitle">Sistem her gün otomatik olarak ayrı bir yedek alıyor. Bir sorun olursa buradan geri yükleyebilirsin.</p>
         <div id="autoBackupList" class="list"></div>
@@ -1878,6 +1887,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
   <script src="js/firebase-config.js"></script>
   <script src="js/bulk-scan-config.js"></script>
+  <script src="js/image-config.js"></script>
   <script src="js/admin-config.js"></script>
   <script src="js/push-config.js"></script>
   <script src="js/chain-config.js"></script>

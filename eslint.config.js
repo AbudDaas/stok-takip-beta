@@ -41,6 +41,7 @@ module.exports = [
         Uint8Array: "readonly",
         chainConfig: "readonly",
         bulkScanConfig: "readonly",
+        imageConfig: "readonly",
         pushConfig: "readonly",
         adminConfig: "readonly",
         firebaseConfig: "readonly"
