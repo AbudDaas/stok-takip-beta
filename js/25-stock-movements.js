@@ -29,6 +29,7 @@ export const STOCK_MOVEMENT_TYPES = [
   "sale_cancel", // satış iptali
   "return", // müşteri iadesi
   "supplier_return", // tedarikçiye iade
+  "waste", // fire / kayıp (kırık, bozuk, SKT, kayıp)
   "purchase", // alım (fatura/irsaliye)
   "manual_add", // elle artırma (+)
   "manual_remove", // elle azaltma (-)

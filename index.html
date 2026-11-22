@@ -475,6 +475,19 @@
         <p class="stat-value" id="statNetProfit">0,00 ₺</p>
       </div>
 
+      <div class="card" id="staffReportCard">
+        <p class="card-title" data-i18n="staffReportTitle">Personel Bazında Satış</p>
+        <div id="staffReportList" class="list"></div>
+        <p id="staffReportEmpty" class="empty-state" style="display:none;" data-i18n="staffReportEmpty">Bu dönemde satış yok.</p>
+      </div>
+
+      <div class="card" id="wasteReportCard">
+        <p class="card-title" data-i18n="wasteReportTitle">Fire ve Kayıp Raporu</p>
+        <p class="card-subtitle"><span data-i18n="wasteReportTotalLabel">Toplam değer</span>: <span id="wasteReportTotal" style="font-weight:700;">—</span></p>
+        <div id="wasteReportList" class="list"></div>
+        <p id="wasteReportEmpty" class="empty-state" style="display:none;" data-i18n="wasteReportEmpty">Bu dönemde fire kaydı yok.</p>
+      </div>
+
       <div class="card" id="paymentBreakdownCard">
         <p class="card-title" data-i18n="paymentBreakdownTitle">Ödeme Türü Dağılımı</p>
         <div class="payment-breakdown-row">
@@ -499,6 +512,12 @@
       <div class="card">
         <p class="card-title" data-i18n="zReportTitle">🧮 Gün Sonu Kasa Sayımı</p>
         <p class="card-subtitle" data-i18n="zReportSubtitle">Kasada olması gereken nakit miktarı otomatik hesaplanır — sen gerçekte saydığın tutarı gir, aradaki farkı gör.</p>
+        <div class="form-row">
+          <p class="card-subtitle" style="margin:0 0 4px;"><span data-i18n="cashOpeningLabel">Kasa açılışı (bugün)</span>: <span id="cashOpeningCurrent" style="font-weight:700;">—</span></p>
+          <input id="cashOpeningUsd" type="text" inputmode="decimal" data-i18n-placeholder="cashOpeningUsdPh" placeholder="Açılışta dolar ($)" style="margin-bottom:6px;" />
+          <input id="cashOpeningLocal" type="text" inputmode="decimal" data-i18n-placeholder="cashOpeningLocalPh" placeholder="Açılışta yerel para" style="margin-bottom:6px;" />
+          <button id="saveCashOpeningBtn" class="btn btn-block"><i class="fa-solid fa-cash-register" aria-hidden="true"></i> <span data-i18n="cashOpeningSaveBtn">Açılışı kaydet</span></button>
+        </div>
         <p class="card-subtitle" style="margin-top:0;"><span data-i18n="zReportExpectedLabel">Olması gereken (bugünkü nakit satış)</span>: <span id="zReportExpected" style="font-weight:700;">0,00 ₺</span></p>
         <p class="card-subtitle" style="margin-top:0;"><span data-i18n="zCashByCurrencyLabel">Kasadaki nakit (para birimine göre)</span>: <span id="zReportCashByCurrency" style="font-weight:700;">—</span></p>
         <div class="form-row two-col">
@@ -1557,6 +1576,22 @@
             </select>
           </div>
           <input id="editBulkValue" type="number" min="0" step="0.01" data-i18n-placeholder="bulkDiscountValuePh" placeholder="İndirim değeri (örn. 10)" />
+          <div class="card" style="margin:8px 0;">
+            <p class="card-title" data-i18n="wasteTitle">Fire / Kayıp Kaydet</p>
+            <p class="card-subtitle" data-i18n="wasteSubtitle">Kırılan, bozulan, SKT geçen ya da kaybolan ürünü stoktan düşer.</p>
+            <div class="form-row two-col">
+              <input id="wasteQty" type="number" min="0" step="0.001" data-i18n-placeholder="wasteQtyPh" placeholder="Miktar" />
+              <select id="wasteReason">
+                <option value="broken" data-i18n="wasteReason_broken">Kırıldı</option>
+                <option value="spoiled" data-i18n="wasteReason_spoiled">Bozuldu</option>
+                <option value="expired" data-i18n="wasteReason_expired">SKT geçti</option>
+                <option value="lost" data-i18n="wasteReason_lost">Kayıp / çalıntı</option>
+                <option value="other" data-i18n="wasteReason_other">Diğer</option>
+              </select>
+            </div>
+            <input id="wasteNote" type="text" data-i18n-placeholder="wasteNotePh" placeholder="Not (opsiyonel)" />
+            <button id="saveWasteBtn" type="button" class="btn btn-block"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> <span data-i18n="wasteSaveBtn">Fire olarak kaydet</span></button>
+          </div>
           <label class="field-label" data-i18n="editSupplierLabel">Tedarikçi (opsiyonel)</label>
           <select id="editSupplierId">
             <option value="" data-i18n="editSupplierNone">Tedarikçi seçilmedi</option>

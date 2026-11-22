@@ -12,6 +12,9 @@ import assert from "assert";
 import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
+import { summarizeByStaff } from "../js/33-staff-sales-report.js";
+import { dayKey, getOpeningFor, openingValueLocal, upsertOpening } from "../js/34-cash-opening.js";
+import { buildWasteRecord, summarizeWaste } from "../js/35-waste.js";
 import worker from "../r2-worker/worker.js";
 import { clearBrokenImages, isImageBroken, markImageBroken } from "../js/32-image-storage.js";
 import { productRowHtml } from "../js/05-products.js";
@@ -830,6 +833,45 @@ test("bozuk resim adresi hatırlanır: ürün satırında <img> yerine yer tutuc
   const html = productRowHtml(p);
   assert.ok(!html.includes("<img") && html.includes("product-thumb-placeholder"));
   clearBrokenImages();
+});
+test("summarizeByStaff: personele ve ödeme türüne göre toplar, eski satışlar belirtilmemiş", () => {
+  const sales = [
+    { staffId: "a", staffName: "Ali", total: 100, paymentType: "nakit", currency: "SYP" },
+    { staffId: "a", staffName: "Ali", total: 50, paymentType: "veresiye", currency: "SYP" },
+    { staffId: "owner", staffName: "Sahip", total: 500, paymentType: "kart", currency: "SYP" },
+    { total: 20, paymentType: "nakit" }
+  ];
+  const r = summarizeByStaff(sales, "SYP", "?");
+  assert.strictEqual(r[0].staffId, "owner");
+  const ali = r.find((x) => x.staffId === "a");
+  assert.strictEqual(ali.count, 2);
+  assert.strictEqual(ali.byCurrency.SYP.total, 150);
+  assert.strictEqual(ali.byCurrency.SYP.veresiye, 50);
+  assert.strictEqual(r.find((x) => x.staffId === "unknown").name, "?");
+});
+test("kasa açılışı: dolar kurla çevrilir, aynı gün tekrar girilince güncellenir, kur yoksa hata", () => {
+  const key = dayKey(new Date(2026, 10, 22));
+  assert.strictEqual(key, "2026-11-22");
+  const a = upsertOpening([], { key, local: "50000", usd: "10", rate: "12000", by: "Ali" });
+  assert.strictEqual(openingValueLocal(a.entry), 170000);
+  const b = upsertOpening(a.sessions, { key, local: "1000", usd: "", rate: "", by: "Ali" });
+  assert.strictEqual(b.sessions.length, 1);
+  assert.strictEqual(openingValueLocal(getOpeningFor(b.sessions, key)), 1000);
+  assert.strictEqual(upsertOpening([], { key, local: "", usd: "5", rate: "" }).error, "rate");
+  assert.strictEqual(openingValueLocal(null), 0);
+});
+test("fire kaydı: değer alış fiyatından, stoktan fazlası ve geçersiz neden reddedilir", () => {
+  const p = { id: "p1", name: "Süt", qty: 10, unit: "adet", costPrice: 12.5 };
+  const ok = buildWasteRecord({ product: p, qty: "3", reason: "broken", currency: "TRY", by: "Ali" });
+  assert.strictEqual(ok.record.value, 37.5);
+  assert.strictEqual(buildWasteRecord({ product: p, qty: 11, reason: "broken" }).error, "stock");
+  assert.strictEqual(buildWasteRecord({ product: p, qty: 0, reason: "broken" }).error, "qty");
+  assert.strictEqual(buildWasteRecord({ product: p, qty: 1, reason: "x" }).error, "reason");
+  const s = summarizeWaste([ok.record, { reason: "broken", qty: 1, value: 10, currency: "TRY" }, { reason: "lost", qty: 2, value: 5, currency: "USD" }]);
+  assert.strictEqual(s.count, 3);
+  assert.strictEqual(s.byReason.broken.qty, 4);
+  assert.strictEqual(s.byReason.broken.value.TRY, 47.5);
+  assert.strictEqual(s.byCurrency.USD, 5);
 });
 test("buildImageUrl / isLegacyStorageUrl", () => {
   assert.strictEqual(buildImageUrl("https://w.dev", "product-images/b/p.jpg", 5), "https://w.dev/img/product-images/b/p.jpg?v=5");

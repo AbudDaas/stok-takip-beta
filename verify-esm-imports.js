@@ -10,7 +10,7 @@ const KNOWN_GLOBALS = new Set([
   "Notification", "SpeechSynthesisUtterance", "FileReader", "FormData", "File", "Blob",
   "URL", "URLSearchParams", "QRCode", "L", "Image", "performance", "XLSX", "confirm", "firebase", "setTimeout",
   "clearTimeout", "requestAnimationFrame", "caches", "Html5Qrcode", "chainConfig",
-  "bulkScanConfig", "imageConfig", "pushConfig", "adminConfig", "firebaseConfig", "Math", "Date",
+  "bulkScanConfig", "imageConfig", "CustomEvent", "pushConfig", "adminConfig", "firebaseConfig", "Math", "Date",
   "JSON", "Object", "Array", "String", "Number", "Boolean", "Promise", "Map", "Set",
   "RegExp", "undefined", "Error", "isNaN", "parseInt", "parseFloat", "encodeURIComponent",
   "decodeURIComponent", "Intl", "Symbol", "WeakMap", "structuredClone", "AbortController",

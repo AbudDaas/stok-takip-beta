@@ -4,6 +4,7 @@ import { escapeHtml, formatQty, formatTL, genId, showPrompt, showToast } from '.
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
 import { latestRate, usdEquivalentText } from './27-currency.js';
+import { currentStaffInfo } from './33-staff-sales-report.js';
 import { clearCashInputs, computeCashReceipt, readCashInputs, renderCashPanel, updateCashPreview } from './29-mixed-payment.js';
 import { attemptSendToFiscalProvider } from './04-fiscal.js';
 import { adjustQty, findProductByCaseScan, findProductByScan, getDisplayName, parseScaleBarcode, updateOutOfStockTracking } from './05-products.js';
@@ -748,6 +749,7 @@ function completeSaleImpl() {
       cost: totalCost,
       profit,
       paymentType: state.selectedPaymentType,
+      ...currentStaffInfo(),
       customerId,
       customerName,
       currency: state.currency,

@@ -1,5 +1,5 @@
 // Sürüm: çekirdek dosyalar değiştiğinde bu numarayı artır (eski önbellek otomatik silinir).
-const VERSION = "v14";
+const VERSION = "v17";
 const CACHE_NAME = "bakkal-stok-" + VERSION;
 const SHARED_PHOTO_CACHE = "shared-photo-cache";
 
@@ -51,6 +51,9 @@ const CORE_ASSETS = [
   "./js/30-veresiye-statement.js",
   "./js/31-history-conversion.js",
   "./js/32-image-storage.js",
+  "./js/33-staff-sales-report.js",
+  "./js/34-cash-opening.js",
+  "./js/35-waste.js",
   "./js/i18n.js",
   "./js/firebase-config.js",
   "./js/bulk-scan-config.js",

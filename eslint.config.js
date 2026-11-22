@@ -29,6 +29,7 @@ module.exports = [
         QRCode: "readonly",
         L: "readonly",
         Image: "readonly",
+        CustomEvent: "readonly",
         performance: "readonly",
         XLSX: "readonly",
         confirm: "readonly",

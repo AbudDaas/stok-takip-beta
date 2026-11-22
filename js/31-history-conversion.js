@@ -32,7 +32,7 @@ import { convertAmount } from './27-currency.js';
 export const BACKUP_KEYS = [
   "products", "sales", "customers", "payments", "dailyResetConfig", "breadLog", "priceChangeLog", "auditLog",
   "staffMembers", "suppliers", "supplierTransactions", "returns", "expenses", "giftCards", "zReports",
-  "incomingOrders", "orderTemplates", "exchangeRates", "currency", "perKmDeliveryFee"
+  "incomingOrders", "orderTemplates", "cashSessions", "wasteLog", "exchangeRates", "currency", "perKmDeliveryFee"
 ];
 
 /** Verinin derin kopyası (yedek ve dry-run için). */
@@ -244,7 +244,7 @@ export async function createPreConversionBackup() {
  * Yedekte olmayan alana dokunmaz.
  */
 export function applyBackupExtras(backup, target = state) {
-  ["giftCards", "zReports", "incomingOrders", "orderTemplates", "exchangeRates"].forEach((k) => {
+  ["giftCards", "zReports", "incomingOrders", "orderTemplates", "cashSessions", "wasteLog", "exchangeRates"].forEach((k) => {
     if (Array.isArray(backup[k])) target[k] = backup[k];
   });
   if (typeof backup.currency === "string" && CURRENCIES[backup.currency]) target.currency = backup.currency;

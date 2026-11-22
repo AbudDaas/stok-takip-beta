@@ -6,6 +6,9 @@ import { recordStockMovement } from './25-stock-movements.js';
 import { renderAll } from './20-navigation.js';
 import { cashByCurrency, formatCashTotals } from './29-mixed-payment.js';
 import { latestRate, sanitizeRate } from './27-currency.js';
+import { getOpeningFor, dayKey, openingValueLocal, renderCashOpening } from './34-cash-opening.js';
+import { renderWasteReport } from './35-waste.js';
+import { renderStaffReport } from './33-staff-sales-report.js';
 
 export function getReturnedQtyForItem(saleId, itemName) {
     return state.returns
@@ -182,9 +185,11 @@ export function topProductRowHtml(item, rank) {
  * hesaplayıp, kullanıcının gerçekte saydığı tutarla karşılaştırır.
  */
 function getExpectedCashToday() {
-  return state.sales
+  const sales = state.sales
     .filter((s) => isInPeriod(s.timestamp, "today") && s.paymentType === "nakit")
     .reduce((sum, s) => sum + s.total, 0);
+  // Açılış bakiyesi (varsa) çekmecede zaten vardı: olması gereken tutara eklenir.
+  return Math.round((sales + openingValueLocal(getOpeningFor(state.cashSessions, dayKey()))) * 100) / 100;
 }
 
 export function submitZReport() {
@@ -212,6 +217,7 @@ export function submitZReport() {
     actual,
     difference,
     ...(usdCounted > 0 ? { usdCounted, localCounted, rate } : {}),
+    ...(getOpeningFor(state.cashSessions, dayKey()) ? { opening: openingValueLocal(getOpeningFor(state.cashSessions, dayKey())) } : {}),
     createdAt: new Date().toISOString()
   });
 
@@ -239,7 +245,14 @@ export function renderZReport() {
   if (usdRow) usdRow.style.display = state.currency === "USD" ? "none" : "";
   const byCurrencyEl = document.getElementById("zReportCashByCurrency");
   if (byCurrencyEl) {
-    byCurrencyEl.textContent = formatCashTotals(cashByCurrency(state.sales, state.currency, (s) => isInPeriod(s.timestamp, "today")));
+    const totals = cashByCurrency(state.sales, state.currency, (s) => isInPeriod(s.timestamp, "today"));
+    const opening = getOpeningFor(state.cashSessions, dayKey());
+    if (opening) {
+      totals[state.currency] = (totals[state.currency] || 0) + (Number(opening.local) || 0);
+      if (opening.usd) totals.USD = (totals.USD || 0) + Number(opening.usd);
+    }
+    byCurrencyEl.textContent = formatCashTotals(totals);
+    renderCashOpening();
   }
 
   const sorted = [...(state.zReports || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
@@ -327,6 +340,9 @@ export function renderSales() {
       const profitCard = profitEl.closest(".profit-highlight-card");
       if (profitCard) profitCard.classList.toggle("negative", periodProfit < 0);
     }
+
+    renderStaffReport(periodSales);
+    renderWasteReport((ts) => isInPeriod(ts, state.currentSalesPeriod));
 
     const nakitTotal = periodSales.filter((s) => s.paymentType === "nakit" || !s.paymentType).reduce((sum, s) => sum + s.total, 0);
     const kartTotal = periodSales.filter((s) => s.paymentType === "kart").reduce((sum, s) => sum + s.total, 0);

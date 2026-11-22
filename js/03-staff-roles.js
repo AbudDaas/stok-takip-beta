@@ -310,6 +310,8 @@ export function applyRoleRestrictionsUI() {
       if (totalCard) totalCard.style.display = "";
       if (profitCard) profitCard.style.display = "";
       if (breakdownCard) breakdownCard.style.display = "";
+      const staffReportCard = document.getElementById("staffReportCard");
+      if (staffReportCard) staffReportCard.style.display = "";
       return;
     }
 
@@ -330,6 +332,8 @@ export function applyRoleRestrictionsUI() {
     if (totalCard) totalCard.style.display = "none";
     if (profitCard) profitCard.style.display = "none";
     if (breakdownCard) breakdownCard.style.display = "none";
+    const staffReportCardHidden = document.getElementById("staffReportCard");
+    if (staffReportCardHidden) staffReportCardHidden.style.display = "none";
 
     updateSwitchUserButtonVisibility();
     switchTab("tab-kasa");

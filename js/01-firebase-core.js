@@ -10,7 +10,8 @@ import { renderAll } from './20-navigation.js';
 export function locale() {
     const lang = window.i18n.getLang();
     if (lang === "en") return "en-US";
-    if (lang === "ar") return "ar-SA";
+    // ar-SA, tarayıcıda Hicri takvim ve Arap-Hint rakamları kullanır; Suriye için Miladi takvim + 0-9 rakamları.
+    if (lang === "ar") return "ar-SY-u-nu-latn";
     return "tr-TR";
   }
 
@@ -141,6 +142,8 @@ export function attachFirestoreListener() {
           state.blockedPhones = data.blockedPhones || [];
           state.blockedIPs = data.blockedIPs || [];
           state.zReports = data.zReports || [];
+          state.cashSessions = data.cashSessions || [];
+          state.wasteLog = data.wasteLog || [];
           state.orderTemplates = data.orderTemplates || [];
 
           // ---- Çakışma tespiti ----
@@ -325,14 +328,14 @@ export function save() {
     if (state.cloudEnabled) {
       if (!state.docRef) return;
       state.suppressNextSnapshot = true;
-      state.docRef.set({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, zReports: state.zReports, orderTemplates: state.orderTemplates, _rev: state._rev }, { merge: true }).catch((e) => {
+      state.docRef.set({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, zReports: state.zReports, cashSessions: state.cashSessions, wasteLog: state.wasteLog, orderTemplates: state.orderTemplates, _rev: state._rev }, { merge: true }).catch((e) => {
         console.error("Bulut kaydetme hatası", e);
         setSyncStatus("error");
         registerBackgroundSync();
       });
     } else {
       try {
-        localStorage.setItem(state.STORAGE_KEY, JSON.stringify({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, zReports: state.zReports, orderTemplates: state.orderTemplates, _rev: state._rev }));
+        localStorage.setItem(state.STORAGE_KEY, JSON.stringify({ products: state.products, sales: state.sales, customers: state.customers, payments: state.payments, dailyResetConfig: state.dailyResetConfig, breadWhatsAppNumber: state.breadWhatsAppNumber, priceChangeLog: state.priceChangeLog, auditLog: state.auditLog, staffMembers: state.staffMembers, suppliers: state.suppliers, supplierTransactions: state.supplierTransactions, returns: state.returns, expenses: state.expenses, giftCards: state.giftCards, incomingOrders: state.incomingOrders, blockedPhones: state.blockedPhones, blockedIPs: state.blockedIPs, zReports: state.zReports, cashSessions: state.cashSessions, wasteLog: state.wasteLog, orderTemplates: state.orderTemplates, _rev: state._rev }));
       } catch (e) {
         console.error("Yerel kaydetme hatası", e);
       }
