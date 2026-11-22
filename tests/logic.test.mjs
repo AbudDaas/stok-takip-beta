@@ -13,6 +13,8 @@ import "./setup-globals.mjs";
 import { state } from "../js/00-state.js";
 import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-utils.js";
 import worker from "../r2-worker/worker.js";
+import { clearBrokenImages, isImageBroken, markImageBroken } from "../js/32-image-storage.js";
+import { productRowHtml } from "../js/05-products.js";
 import { buildImageUrl, isLegacyStorageUrl, normalizeWorkerUrl, migrateImagesToR2, uploadImage } from "../js/32-image-storage.js";
 import { applyBackupExtras, buildFullBackup, convertHistory, previewConversion, tagUntaggedRecords, verifyConversion } from "../js/31-history-conversion.js";
 import { buildStatementEntries, buildStatementText } from "../js/30-veresiye-statement.js";
@@ -818,6 +820,16 @@ test("normalizeWorkerUrl: https:// yoksa ekler, sondaki / ve boşluğu atar", ()
   assert.strictEqual(normalizeWorkerUrl("bakkal-images.abc.workers.dev"), "https://bakkal-images.abc.workers.dev");
   assert.strictEqual(normalizeWorkerUrl("  https://x.workers.dev/ "), "https://x.workers.dev");
   assert.strictEqual(normalizeWorkerUrl(""), "");
+});
+test("bozuk resim adresi hatırlanır: ürün satırında <img> yerine yer tutucu çizilir", () => {
+  const p = { id: "p1", name: "A", category: "c", price: 5, qty: 3, min: 1, unit: "adet", image: "https://firebasestorage.googleapis.com/v0/b/x/o/a?alt=media" };
+  clearBrokenImages();
+  assert.ok(productRowHtml(p).includes("<img"));
+  markImageBroken(p.image);
+  assert.ok(isImageBroken(p.image));
+  const html = productRowHtml(p);
+  assert.ok(!html.includes("<img") && html.includes("product-thumb-placeholder"));
+  clearBrokenImages();
 });
 test("buildImageUrl / isLegacyStorageUrl", () => {
   assert.strictEqual(buildImageUrl("https://w.dev", "product-images/b/p.jpg", 5), "https://w.dev/img/product-images/b/p.jpg?v=5");
