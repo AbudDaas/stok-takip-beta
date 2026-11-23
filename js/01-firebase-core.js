@@ -136,6 +136,8 @@ export function attachFirestoreListener() {
           state.businessLat = data.businessLat || null;
           state.businessLng = data.businessLng || null;
           state.perKmDeliveryFee = data.perKmDeliveryFee || 0;
+          state.bulkPriceEnabled = data.bulkPriceEnabled || false;
+          state.lastBulkPrice = data.lastBulkPrice || null;
           state.businessLogo = data.businessLogo || "";
           state.brandColor = data.brandColor || "#1F3864";
           state.incomingOrders = data.incomingOrders || [];

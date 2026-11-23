@@ -15,6 +15,7 @@ import { calcSellingPrice, formatMoney, formatQty, formatTL } from "../js/02-uti
 import { summarizeByStaff } from "../js/33-staff-sales-report.js";
 import { dayKey, getOpeningFor, openingValueLocal, upsertOpening } from "../js/34-cash-opening.js";
 import { buildWasteRecord, summarizeWaste } from "../js/35-waste.js";
+import { applyPlan, computeNewValue, planBulkUpdate, restoreSnapshot } from "../js/36-bulk-price.js";
 import worker from "../r2-worker/worker.js";
 import { clearBrokenImages, isImageBroken, markImageBroken } from "../js/32-image-storage.js";
 import { productRowHtml } from "../js/05-products.js";
@@ -872,6 +873,34 @@ test("fire kaydı: değer alış fiyatından, stoktan fazlası ve geçersiz nede
   assert.strictEqual(s.byReason.broken.qty, 4);
   assert.strictEqual(s.byReason.broken.value.TRY, 47.5);
   assert.strictEqual(s.byCurrency.USD, 5);
+});
+test("toplu fiyat: yüzde, sabit tutar, yuvarlama, alt sınır", () => {
+  assert.strictEqual(computeNewValue(10000, { mode: "percent", change: 10, rounding: 0, currency: "SYP" }), 11000);
+  assert.strictEqual(computeNewValue(10000, { mode: "percent", change: 12.34, rounding: 100, currency: "SYP" }), 11200);
+  assert.strictEqual(computeNewValue(55, { mode: "percent", change: 10, rounding: 0, currency: "TRY" }), 60.5);
+  assert.strictEqual(computeNewValue(100, { mode: "amount", change: -30, rounding: 0, currency: "SYP" }), 70);
+  assert.strictEqual(computeNewValue(100, { mode: "percent", change: -100, rounding: 0, currency: "SYP" }), 1); // 0'a düşmez
+  assert.strictEqual(computeNewValue(0, { mode: "percent", change: 10, rounding: 0, currency: "SYP" }), 0);
+});
+test("toplu fiyat: kategori, hedef, uygula ve geri al", () => {
+  const products = [
+    { id: "a", name: "A", category: "İçecek", price: 100, costPrice: 60, discountedPrice: 90 },
+    { id: "b", name: "B", category: "Süt", price: 200, costPrice: 120, bulkDiscountType: "amount", bulkDiscountValue: 20 },
+    { id: "c", name: "C", category: "İçecek", price: 0, costPrice: 0 }
+  ];
+  const opts = { mode: "percent", change: 10, target: "price", category: "", rounding: 0, currency: "SYP" };
+  const all = planBulkUpdate(products, opts);
+  assert.strictEqual(all.length, 2); // fiyatı 0 olan atlanır
+  assert.strictEqual(planBulkUpdate(products, { ...opts, category: "Süt" }).length, 1);
+  assert.strictEqual(planBulkUpdate(products, { ...opts, target: "cost" })[0].changes[0].field, "costPrice");
+  const snap = applyPlan(products, all);
+  assert.strictEqual(products[0].price, 110);
+  assert.strictEqual(products[0].discountedPrice, 99);
+  assert.strictEqual(products[1].bulkDiscountValue, 22);
+  assert.strictEqual(products[0].costPrice, 60); // alış fiyatına dokunulmadı
+  assert.strictEqual(restoreSnapshot(products, snap), 2);
+  assert.strictEqual(products[0].price, 100);
+  assert.strictEqual(products[1].bulkDiscountValue, 20);
 });
 test("buildImageUrl / isLegacyStorageUrl", () => {
   assert.strictEqual(buildImageUrl("https://w.dev", "product-images/b/p.jpg", 5), "https://w.dev/img/product-images/b/p.jpg?v=5");

@@ -4,6 +4,7 @@ import { showToast } from './02-utils.js';
 import { addStaffMember, enterAsOwner, saveOwnerPin, staffPickerGoBack, submitStaffPickerPin, switchUser } from './03-staff-roles.js';
 import { saveFiscalSettings, toggleFiscalEnabled } from './04-fiscal.js';
 import { openModal, adjustCases, addCaseBarcodeEntry, addExtraBarcode, addPendingCaseBarcode, addPendingExtraBarcode, addProduct, addWarehouseStock, adjustQty, applyPhysicalCount, closeModal, closePhysicalCountModal, deleteProduct, handleCsvImportFile, handleEditProductPhotoUpload, handleNewProductPhotoUpload, openPhysicalCountModal, printAllQrCodes, printQr, printSelfSourceList, renderPhysicalCountList, resetAll, saveEdit, setQtyManually, transferToShelf, translateMissingProductNames } from './05-products.js';
+import { applyBulkPrice, previewBulkPrice, toggleBulkPrice, undoBulkPrice } from './36-bulk-price.js';
 import { saveWaste } from './35-waste.js';
 import { saveCashOpening } from './34-cash-opening.js';
 import { installImageErrorGuard, runImageMigration } from './32-image-storage.js';
@@ -331,6 +332,11 @@ document.getElementById("onboardingNextBtn").addEventListener("click", onboardin
 document.getElementById("onboardingSkipBtn").addEventListener("click", finishOnboarding);
 
 document.getElementById("downloadBackupBtn").addEventListener("click", downloadBackup);
+document.getElementById("bulkPriceEnabledCheck").addEventListener("change", toggleBulkPrice);
+document.getElementById("bulkPricePreviewBtn").addEventListener("click", previewBulkPrice);
+document.getElementById("bulkPriceApplyBtn").addEventListener("click", applyBulkPrice);
+document.getElementById("bulkPriceUndoBtn").addEventListener("click", undoBulkPrice);
+document.addEventListener("bulk-price-changed", renderAll);
 document.getElementById("saveWasteBtn").addEventListener("click", saveWaste);
 document.addEventListener("waste-changed", () => {
   renderAll();

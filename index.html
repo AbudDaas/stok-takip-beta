@@ -1254,6 +1254,34 @@
         </button>
       </div>
 
+      <div class="card" id="bulkPriceCard">
+        <p class="card-title" data-i18n="bulkPriceTitle">💱 Toplu Fiyat Güncelleme</p>
+        <p class="card-subtitle" data-i18n="bulkPriceSubtitle">Kur oynayınca tüm fiyatları yüzdeyle ya da sabit tutarla değiştirmek için. Açık olduğunda aşağıdaki bölüm görünür.</p>
+        <label class="checkbox-row"><input id="bulkPriceEnabledCheck" type="checkbox" /> <span data-i18n="bulkPriceEnable">Toplu fiyat güncellemeyi aç</span></label>
+        <div id="bulkPricePanel" style="display:none;">
+          <div class="form-row two-col">
+            <select id="bulkPriceMode">
+              <option value="percent" data-i18n="bulkPriceModePercent">Yüzde (%)</option>
+              <option value="amount" data-i18n="bulkPriceModeAmount">Sabit tutar (±)</option>
+            </select>
+            <input id="bulkPriceChange" type="text" inputmode="decimal" data-i18n-placeholder="bulkPriceChangePh" placeholder="Örn. 10 (artır) ya da -5 (azalt)" />
+          </div>
+          <div class="form-row two-col">
+            <select id="bulkPriceTarget">
+              <option value="price" data-i18n="bulkPriceTargetPrice">Satış fiyatı</option>
+              <option value="cost" data-i18n="bulkPriceTargetCost">Alış fiyatı</option>
+              <option value="both" data-i18n="bulkPriceTargetBoth">İkisi de</option>
+            </select>
+            <select id="bulkPriceCategory"></select>
+          </div>
+          <select id="bulkPriceRounding"></select>
+          <div id="bulkPricePreview" style="margin:8px 0;"></div>
+          <button id="bulkPricePreviewBtn" type="button" class="btn btn-block"><i class="fa-solid fa-eye" aria-hidden="true"></i> <span data-i18n="bulkPricePreviewBtn">Önizle</span></button>
+          <button id="bulkPriceApplyBtn" type="button" class="btn btn-block btn-primary"><i class="fa-solid fa-check" aria-hidden="true"></i> <span data-i18n="bulkPriceApplyBtn">Uygula</span></button>
+          <button id="bulkPriceUndoBtn" type="button" class="btn btn-block" style="display:none;"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span data-i18n="bulkPriceUndoBtn">Son güncellemeyi geri al</span></button>
+        </div>
+      </div>
+
       <div class="card">
         <p class="card-title" data-i18n="imageMigrateTitle">🖼️ Görsel Depolama (R2)</p>
         <p class="card-subtitle" data-i18n="imageMigrateSubtitle">Eski Firebase Storage'daki ürün fotoğraflarını ve logoyu yeni depoya taşır. Eski depo erişilebilir olmalı.</p>
