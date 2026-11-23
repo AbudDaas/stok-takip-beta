@@ -49,6 +49,7 @@ state.blockedIPs = [];
 state.zReports = [];
 state.cashSessions = [];
 state.bulkPriceEnabled = false;
+state.creditControl = { enabled: false, limit: 0, dueDays: 0, mode: "block" };
 state.lastBulkPrice = null;
 state.wasteLog = [];
 state.profitRankMode = "top";

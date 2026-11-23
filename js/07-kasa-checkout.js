@@ -4,6 +4,7 @@ import { escapeHtml, formatQty, formatTL, genId, showPrompt, showToast } from '.
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
 import { latestRate, usdEquivalentText } from './27-currency.js';
+import { creditCheckPassed } from './37-credit-control.js';
 import { currentStaffInfo } from './33-staff-sales-report.js';
 import { clearCashInputs, computeCashReceipt, readCashInputs, renderCashPanel, updateCashPreview } from './29-mixed-payment.js';
 import { attemptSendToFiscalProvider } from './04-fiscal.js';
@@ -707,6 +708,12 @@ function completeSaleImpl() {
     }
 
     let totalCost = 0;
+    // Veresiye borç limiti (Ayarlar'da açıksa): limit aşılırsa satış engellenir ya da uyarılır.
+    if (state.selectedPaymentType === "veresiye") {
+      const debtor = state.customers.find((x) => x.id === customerId);
+      if (debtor && !creditCheckPassed(debtor, total)) return;
+    }
+
     // Karışık nakit ödeme: müşterinin verdiği USD/yerel tutarları doğrula (boşsa tam tutar nakit sayılır).
     let cashReceipt = null;
     const cashInput = state.selectedPaymentType === "nakit" ? readCashInputs() : null;

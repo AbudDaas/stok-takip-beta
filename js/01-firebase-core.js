@@ -137,6 +137,7 @@ export function attachFirestoreListener() {
           state.businessLng = data.businessLng || null;
           state.perKmDeliveryFee = data.perKmDeliveryFee || 0;
           state.bulkPriceEnabled = data.bulkPriceEnabled || false;
+          state.creditControl = data.creditControl || { enabled: false, limit: 0, dueDays: 0, mode: "block" };
           state.lastBulkPrice = data.lastBulkPrice || null;
           state.businessLogo = data.businessLogo || "";
           state.brandColor = data.brandColor || "#1F3864";

@@ -1,5 +1,6 @@
 import { state } from './00-state.js';
 import { renderBulkPriceSettings } from './36-bulk-price.js';
+import { renderCreditSettings, renderOverdueList } from './37-credit-control.js';
 import { escapeHtml, getStatus } from './02-utils.js';
 import { renderAuditLog, renderOwnerPinStatus, renderStaffList } from './03-staff-roles.js';
 import { renderFiscalSettings } from './04-fiscal.js';
@@ -115,6 +116,8 @@ export function renderAll() {
     renderLoyaltySettings();
     renderCurrencySettings();
     renderBulkPriceSettings();
+    renderCreditSettings();
+    renderOverdueList();
     renderScaleBarcodeSettings();
     renderDeliverySettings();
     renderBrandIdentitySettings();

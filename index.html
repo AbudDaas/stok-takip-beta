@@ -575,6 +575,13 @@
         <p id="reminderInactiveEmptyState" class="empty-state" data-i18n="reminderInactiveEmpty">Herkes düzenli geliyor, harika!</p>
       </div>
 
+      <div class="card" id="overdueCard" style="display:none;">
+        <p class="card-title" data-i18n="overdueTitle">⏰ Geciken Borçlar</p>
+        <p class="card-subtitle"><span data-i18n="overdueTotalLabel">Toplam geciken</span>: <span id="overdueTotal" style="font-weight:700;">—</span></p>
+        <div id="overdueList" class="list"></div>
+        <p id="overdueEmpty" class="empty-state" style="display:none;" data-i18n="overdueEmpty">Geciken borç yok.</p>
+      </div>
+
       <p class="card-title" data-i18n="customersTitle">Müşteriler</p>
       <div id="customerList" class="list"></div>
       <p id="customerEmptyState" class="empty-state" data-i18n="emptyCustomers">Henüz müşteri yok.</p>
@@ -1252,6 +1259,24 @@
         <button id="downloadBackupBtn" class="btn btn-block">
           <i class="fa-solid fa-download" aria-hidden="true"></i> <span data-i18n="settingsBackupBtn">Yedeği indir</span>
         </button>
+      </div>
+
+      <div class="card" id="creditCard">
+        <p class="card-title" data-i18n="creditTitle">🧾 Veresiye Kontrolü (limit ve vade)</p>
+        <p class="card-subtitle" data-i18n="creditSubtitle">Müşteri başına borç limiti ve vade günü belirle; limit aşılınca satış engellenir ya da uyarılır, vadesi geçen borçlar "Geciken" listesinde görünür.</p>
+        <label class="checkbox-row"><input id="creditEnabledCheck" type="checkbox" /> <span data-i18n="creditEnable">Veresiye kontrolünü aç</span></label>
+        <div id="creditPanel" style="display:none;">
+          <label class="field-label" for="creditLimitInput" data-i18n="creditLimitLabel">Müşteri başına borç limiti (0 = sınırsız)</label>
+          <input id="creditLimitInput" type="text" inputmode="decimal" />
+          <label class="field-label" for="creditDueDaysInput" data-i18n="creditDueDaysLabel">Vade (gün) — 0 = vade yok</label>
+          <input id="creditDueDaysInput" type="number" min="0" step="1" />
+          <label class="field-label" for="creditModeSelect" data-i18n="creditModeLabel">Limit aşılınca</label>
+          <select id="creditModeSelect">
+            <option value="block" data-i18n="creditModeBlock">Satışı engelle</option>
+            <option value="warn" data-i18n="creditModeWarn">Uyar, onaylarsam devam et</option>
+          </select>
+          <button id="saveCreditBtn" type="button" class="btn btn-block btn-primary"><i class="fa-solid fa-check" aria-hidden="true"></i> <span data-i18n="creditSaveBtn">Kaydet</span></button>
+        </div>
       </div>
 
       <div class="card" id="bulkPriceCard">
