@@ -49,6 +49,7 @@ state.blockedIPs = [];
 state.zReports = [];
 state.cashSessions = [];
 state.bulkPriceEnabled = false;
+state.receiptSettings = { enabled: false, connection: "system", paper: 58, lang: "auto", baud: 9600, shopName: "", headerExtra: "", footer: "", autoPrint: false };
 state.creditControl = { enabled: false, limit: 0, dueDays: 0, mode: "block" };
 state.lastBulkPrice = null;
 state.wasteLog = [];

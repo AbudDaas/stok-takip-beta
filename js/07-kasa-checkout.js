@@ -4,6 +4,7 @@ import { escapeHtml, formatQty, formatTL, genId, showPrompt, showToast } from '.
 import { logAudit } from './03-staff-roles.js';
 import { recordStockMovement } from './25-stock-movements.js';
 import { latestRate, usdEquivalentText } from './27-currency.js';
+import { autoPrintIfEnabled } from './38-receipt.js';
 import { creditCheckPassed } from './37-credit-control.js';
 import { currentStaffInfo } from './33-staff-sales-report.js';
 import { clearCashInputs, computeCashReceipt, readCashInputs, renderCashPanel, updateCashPreview } from './29-mixed-payment.js';
@@ -780,6 +781,7 @@ function completeSaleImpl() {
     setPaymentType("nakit");
     save();
     renderAll();
+    autoPrintIfEnabled(newSale);
     showToast(`${state.t("alertSaleComplete")} ${formatTL(total)}${customerName ? " (" + state.t("veresiyeLabel") + ": " + customerName + ")" : ""}`, "success");
   }
 

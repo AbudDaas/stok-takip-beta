@@ -1261,6 +1261,45 @@
         </button>
       </div>
 
+      <div class="card" id="receiptCard">
+        <p class="card-title" data-i18n="receiptTitle">🧾 Fiş / Makbuz ve Yazıcı</p>
+        <p class="card-subtitle" data-i18n="receiptSubtitle">Satış fişini termal yazıcıdan (kablolu USB, Bluetooth ya da sistem yazıcısı) Türkçe veya Arapça yazdır.</p>
+        <label class="checkbox-row"><input id="receiptEnabledCheck" type="checkbox" /> <span data-i18n="receiptEnable">Fiş yazdırmayı aç</span></label>
+        <div id="receiptPanel" style="display:none;">
+          <label class="field-label" for="receiptConnection" data-i18n="receiptConnLabel">Bağlantı türü</label>
+          <select id="receiptConnection">
+            <option value="usb" data-i18n="receiptConnUsb">Kablolu (USB)</option>
+            <option value="bluetooth" data-i18n="receiptConnBt">Bluetooth</option>
+            <option value="system" data-i18n="receiptConnSystem">Sistem yazıcısı (yazdır penceresi)</option>
+          </select>
+          <p id="receiptNote" class="card-subtitle"></p>
+          <div id="receiptBaudRow">
+            <label class="field-label" for="receiptBaud" data-i18n="receiptBaudLabel">Hız (baud) — çoğu yazıcıda 9600</label>
+            <select id="receiptBaud"><option value="9600">9600</option><option value="19200">19200</option><option value="38400">38400</option><option value="57600">57600</option><option value="115200">115200</option></select>
+          </div>
+          <label class="field-label" for="receiptPaper" data-i18n="receiptPaperLabel">Kağıt genişliği</label>
+          <select id="receiptPaper"><option value="58">58 mm</option><option value="80">80 mm</option></select>
+          <label class="field-label" for="receiptLang" data-i18n="receiptLangLabel">Fiş dili</label>
+          <select id="receiptLang">
+            <option value="auto" data-i18n="receiptLangAuto">Uygulama dili</option>
+            <option value="tr">Türkçe</option>
+            <option value="ar">العربية</option>
+            <option value="en">English</option>
+          </select>
+          <label class="field-label" for="receiptShopName" data-i18n="receiptShopLabel">Fiş başlığı (boşsa işletme adı)</label>
+          <input id="receiptShopName" type="text" maxlength="60" />
+          <label class="field-label" for="receiptHeaderExtra" data-i18n="receiptHeaderLabel">Adres / telefon (her satır ayrı)</label>
+          <textarea id="receiptHeaderExtra" rows="2" maxlength="200"></textarea>
+          <label class="field-label" for="receiptFooter" data-i18n="receiptFooterLabel">Alt yazı (boşsa "Teşekkürler")</label>
+          <input id="receiptFooter" type="text" maxlength="120" />
+          <label class="checkbox-row"><input id="receiptAutoPrint" type="checkbox" /> <span data-i18n="receiptAutoPrint">Satış bitince fişi otomatik yazdır</span></label>
+          <p class="card-subtitle"><span data-i18n="receiptStatusLabel">Durum</span>: <span id="receiptStatus" style="font-weight:700;"></span></p>
+          <button id="receiptSaveBtn" type="button" class="btn btn-block btn-primary"><i class="fa-solid fa-check" aria-hidden="true"></i> <span data-i18n="receiptSaveBtn">Kaydet</span></button>
+          <button id="receiptConnectBtn" type="button" class="btn btn-block"><i class="fa-solid fa-plug" aria-hidden="true"></i> <span data-i18n="receiptConnectBtn">Yazıcıyı bağla / seç</span></button>
+          <button id="receiptTestBtn" type="button" class="btn btn-block"><i class="fa-solid fa-print" aria-hidden="true"></i> <span data-i18n="receiptTestBtn">Test fişi yazdır</span></button>
+        </div>
+      </div>
+
       <div class="card" id="creditCard">
         <p class="card-title" data-i18n="creditTitle">🧾 Veresiye Kontrolü (limit ve vade)</p>
         <p class="card-subtitle" data-i18n="creditSubtitle">Müşteri başına borç limiti ve vade günü belirle; limit aşılınca satış engellenir ya da uyarılır, vadesi geçen borçlar "Geciken" listesinde görünür.</p>

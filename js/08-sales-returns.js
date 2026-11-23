@@ -1,3 +1,4 @@
+import { printSale, receiptButtonHtml } from './38-receipt.js';
 import { state } from './00-state.js';
 import { locale, save } from './01-firebase-core.js';
 import { escapeHtml, formatMoney, formatTL, genId, showToast } from './02-utils.js';
@@ -158,6 +159,7 @@ export function saleRowHtml(sale) {
         ${returnedNote}
         <div class="sale-row-bottom">
           ${paymentBadge}
+          ${receiptButtonHtml(sale.id)}
           <button class="sale-return-btn" data-id="${sale.id}">
             <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ${state.t("returnBtn")}
           </button>
@@ -303,6 +305,12 @@ export function renderSales() {
       list.innerHTML = sorted.map(saleRowHtml).join("");
       list.querySelectorAll(".sale-cancel-btn").forEach((btn) => {
         btn.addEventListener("click", () => cancelSale(btn.dataset.id));
+      });
+      list.querySelectorAll(".sale-receipt-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const sale = state.sales.find((s) => s.id === btn.dataset.id);
+          if (sale) printSale(sale);
+        });
       });
       list.querySelectorAll(".sale-return-btn").forEach((btn) => {
         btn.addEventListener("click", () => openReturnModal(btn.dataset.id));
