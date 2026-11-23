@@ -94,6 +94,29 @@ export function handleAuthChange(user) {
     }
   }
 
+// Tanılama: konsolda localStorage.setItem("bakkal_debug_snapshots","1") yazıp sayfayı yenilersen,
+// her Firestore bildiriminde HANGİ alanın değiştiği ve kimin yazdığı konsola yazılır.
+let _lastFieldSig = {};
+let _snapshotCount = 0;
+function logSnapshotDiff(snap, data) {
+  try {
+    if (localStorage.getItem("bakkal_debug_snapshots") !== "1") return;
+    const changed = [];
+    Object.keys(data).forEach((k) => {
+      const sig = JSON.stringify(data[k]);
+      if (_lastFieldSig[k] !== sig) changed.push(k);
+      _lastFieldSig[k] = sig;
+    });
+    _snapshotCount++;
+    console.log(`[snapshot #${_snapshotCount}]`, new Date().toLocaleTimeString(), {
+      degisenAlanlar: changed,
+      rev: data._rev,
+      kendiYazimimiz: snap.metadata.hasPendingWrites,
+      onbellek: snap.metadata.fromCache
+    });
+  } catch (e) {}
+}
+
 export function attachFirestoreListener() {
     state.firestoreUnsubscribe = state.docRef.onSnapshot(
       (snap) => {
@@ -103,6 +126,7 @@ export function attachFirestoreListener() {
         }
         if (snap.exists && snap.data().products) {
           const data = snap.data();
+          logSnapshotDiff(snap, data);
           state.products = data.products;
           state.sales = data.sales || [];
           state.customers = data.customers || [];
