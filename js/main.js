@@ -4,6 +4,7 @@ import { showToast } from './02-utils.js';
 import { addStaffMember, enterAsOwner, saveOwnerPin, staffPickerGoBack, submitStaffPickerPin, switchUser } from './03-staff-roles.js';
 import { saveFiscalSettings, toggleFiscalEnabled } from './04-fiscal.js';
 import { openModal, adjustCases, addCaseBarcodeEntry, addExtraBarcode, addPendingCaseBarcode, addPendingExtraBarcode, addProduct, addWarehouseStock, adjustQty, applyPhysicalCount, closeModal, closePhysicalCountModal, deleteProduct, handleCsvImportFile, handleEditProductPhotoUpload, handleNewProductPhotoUpload, openPhysicalCountModal, printAllQrCodes, printQr, printSelfSourceList, renderPhysicalCountList, resetAll, saveEdit, setQtyManually, transferToShelf, translateMissingProductNames } from './05-products.js';
+import { renderStockCompare, toggleChainFinance } from './39-chain-dashboard.js';
 import { connectPrinterClick, printTestReceipt, renderReceiptSettings, saveReceiptSettings, toggleReceipt } from './38-receipt.js';
 import { saveCreditSettings, sendOverdueReminder, toggleCreditControl } from './37-credit-control.js';
 import { applyBulkPrice, previewBulkPrice, toggleBulkPrice, undoBulkPrice } from './36-bulk-price.js';
@@ -334,6 +335,9 @@ document.getElementById("onboardingNextBtn").addEventListener("click", onboardin
 document.getElementById("onboardingSkipBtn").addEventListener("click", finishOnboarding);
 
 document.getElementById("downloadBackupBtn").addEventListener("click", downloadBackup);
+document.getElementById("chainFinanceCheck").addEventListener("change", toggleChainFinance);
+document.getElementById("chainCompareSearch").addEventListener("input", () => renderStockCompare());
+document.getElementById("chainCompareFilter").addEventListener("change", () => renderStockCompare());
 document.getElementById("receiptEnabledCheck").addEventListener("change", toggleReceipt);
 document.getElementById("receiptSaveBtn").addEventListener("click", saveReceiptSettings);
 document.getElementById("receiptConnectBtn").addEventListener("click", connectPrinterClick);

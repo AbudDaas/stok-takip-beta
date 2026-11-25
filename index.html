@@ -1464,6 +1464,29 @@
         <button id="exitBranchViewBtn" class="btn btn-sm"><span data-i18n="branchExitView">Kendi hesabıma dön</span></button>
       </div>
 
+      <div class="card" id="chainDashCard">
+        <p class="card-title" data-i18n="chainDashTitle">🏢 Merkez Genel Durum</p>
+        <label class="checkbox-row"><input id="chainFinanceCheck" type="checkbox" /> <span data-i18n="chainShowFinance">Finansal verileri göster (maliyet, stok değeri, gider, kâr)</span></label>
+        <div id="chainTotals" class="stats-grid"></div>
+        <p class="card-subtitle" data-i18n="chainQtyNote">(Adet ve kg birlikte toplanır.)</p>
+        <p class="card-title" data-i18n="chainAlertsTitle" style="margin-top:14px;">⚠️ Kritik uyarılar</p>
+        <div id="chainAlerts"></div>
+        <p class="card-title" data-i18n="chainBranchesTitle" style="margin-top:14px;">Şube durumları</p>
+        <div id="chainBranchCards" class="list"></div>
+      </div>
+
+      <div class="card" id="chainCompareCard">
+        <p class="card-title" data-i18n="chainCompareTitle">📊 Şubeler arası stok karşılaştırma</p>
+        <div class="form-row two-col">
+          <input id="chainCompareSearch" type="text" data-i18n-placeholder="chainCompareSearchPh" placeholder="Ürün ara..." />
+          <select id="chainCompareFilter">
+            <option value="all" data-i18n="chainFilterAll">Tüm ürünler</option>
+            <option value="problem" data-i18n="chainFilterProblem">Sadece sorunlu (azalan/tükenen)</option>
+          </select>
+        </div>
+        <div id="chainCompareTable" style="overflow-x:auto;"></div>
+      </div>
+
       <div class="card">
         <p class="card-title" data-i18n="branchSummaryTitle">Tüm Şubeler Özeti</p>
         <div class="stats-grid">

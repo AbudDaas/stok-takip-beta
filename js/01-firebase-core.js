@@ -79,6 +79,9 @@ export function handleAuthChange(user) {
       }
     } else {
       state.currentUser = null;
+      try {
+        sessionStorage.removeItem("bakkal_current_staff_id");
+      } catch (e) {}
       state.docRef = null;
       state.products = [];
       state.sales = [];
@@ -162,6 +165,7 @@ export function attachFirestoreListener() {
           state.perKmDeliveryFee = data.perKmDeliveryFee || 0;
           state.bulkPriceEnabled = data.bulkPriceEnabled || false;
           state.receiptSettings = data.receiptSettings || { enabled: false, connection: "system", paper: 58, lang: "auto", baud: 9600, shopName: "", headerExtra: "", footer: "", autoPrint: false };
+          state.chainShowFinance = data.chainShowFinance || false;
           state.creditControl = data.creditControl || { enabled: false, limit: 0, dueDays: 0, mode: "block" };
           state.lastBulkPrice = data.lastBulkPrice || null;
           state.businessLogo = data.businessLogo || "";

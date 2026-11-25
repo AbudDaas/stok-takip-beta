@@ -3,6 +3,7 @@ import { attachFirestoreListener } from './01-firebase-core.js';
 import { escapeHtml, formatTL, isChainConfigured, mkProduct, showToast } from './02-utils.js';
 import { applyAccountTypeUI } from './03-staff-roles.js';
 import { switchTab } from './20-navigation.js';
+import { renderChainDashboard } from './39-chain-dashboard.js';
 
 export function calcTodaySalesTotal(salesArr) {
     const today = new Date();
@@ -23,12 +24,18 @@ export function loadBranches() {
             uid: doc.id,
             branchName: data.branchName || doc.id,
             products: data.products || [],
-            sales: data.sales || []
+            sales: data.sales || [],
+            expenses: data.expenses || [],
+            supplierTransactions: data.supplierTransactions || [],
+            auditLog: data.auditLog || [],
+            staffMembers: data.staffMembers || [],
+            currency: data.currency || "TRY"
           });
         });
         state.loadedBranches = branches;
         renderBranchList(branches);
         renderBranchSummary(branches);
+        renderChainDashboard(branches);
       })
       .catch((e) => {
         console.error("Şube listesi okunamadı", e);

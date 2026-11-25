@@ -174,25 +174,81 @@ export function addStaffMember() {
     showToast(state.t("staffAdded"), "success");
   }
 
-export function checkStaffSelection() {
-    if (!state.staffMembers.length) {
-      state.currentStaff = null;
-      applyRoleRestrictionsUI();
-      return;
-    }
-    let savedStaffId = null;
+// Seçili çalışan kimliği oturumda (sekme) tutulur; ARTIK hesabın uid'sine bağlıdır.
+// Böylece çıkış yapıp başka hesapla giren biri öncekinin yetkisini devralamaz.
+const SESSION_KEY = "bakkal_current_staff_id";
+
+function saveIdentity(id) {
     try {
-      savedStaffId = sessionStorage.getItem("bakkal_current_staff_id");
+      sessionStorage.setItem(SESSION_KEY, `${state.currentUser ? state.currentUser.uid : ""}|${id}`);
     } catch (e) {}
-    if (savedStaffId === "__owner__") {
+  }
+
+function readIdentity() {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY) || "";
+      const cut = raw.indexOf("|");
+      if (cut < 0) return null; // eski biçim ya da yok → geçersiz
+      const uid = raw.slice(0, cut);
+      if (!state.currentUser || uid !== state.currentUser.uid) return null;
+      return raw.slice(cut + 1);
+    } catch (e) {
+      return null;
+    }
+  }
+
+export function clearIdentity() {
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+    } catch (e) {}
+  }
+
+function pickerVisible() {
+    const el = document.getElementById("staffPickerScreen");
+    return el && el.style.display !== "none";
+  }
+
+function showPickerScreen() {
+    document.getElementById("staffPickerScreen").style.display = "flex";
+  }
+
+/**
+ * Giriş sonrası "kim çalışıyor?" kontrolü.
+ *  - Yönetici (admin) ve patronun şubeyi görüntülemesi muaf.
+ *  - Bulut hesabında sahip PIN'i yoksa ilk girişte belirletilir (PIN'siz tam yetki yok).
+ *  - Personel yoksa yalnızca sahip PIN'i sorulur; personel varsa liste gelir.
+ *  - Yerel (bulutsuz) kullanımda eski davranış korunur.
+ */
+export function checkStaffSelection() {
+    const isAdmin = state.currentUser && state.currentUser.uid === state.ADMIN_UID;
+    const cloud = Boolean(state.currentUser);
+    if (isAdmin || state.viewingBranchUid || (!cloud && !state.staffMembers.length)) {
       state.currentStaff = null;
       applyRoleRestrictionsUI();
       return;
     }
-    const savedStaff = state.staffMembers.find((s) => s.id === savedStaffId);
+    const saved = readIdentity();
+    if (saved === "__owner__") {
+      state.currentStaff = null;
+      applyRoleRestrictionsUI();
+      return;
+    }
+    const savedStaff = state.staffMembers.find((s) => s.id === saved);
     if (savedStaff) {
       state.currentStaff = savedStaff;
       applyRoleRestrictionsUI();
+      return;
+    }
+    if (pickerVisible()) return; // her bildirimde ekranı sıfırlama (yazılan PIN silinmesin)
+    state.currentStaff = null;
+    if (cloud && !state.ownerPin) {
+      showPickerScreen();
+      openStaffPinView({ type: "owner-setup" });
+      return;
+    }
+    if (!state.staffMembers.length) {
+      showPickerScreen();
+      openStaffPinView({ type: "owner" });
       return;
     }
     showStaffPicker();
@@ -230,7 +286,12 @@ export function openStaffPinView(selection) {
     document.getElementById("staffPickerPinView").style.display = "block";
 
     const nameEl = document.getElementById("staffPickerSelectedName");
-    if (selection.type === "owner") {
+    const backBtn = document.getElementById("staffPickerBackBtn");
+    if (backBtn) backBtn.style.display = selection.type === "owner-setup" || !state.staffMembers.length ? "none" : "";
+    document.getElementById("staffPickerPinInput").placeholder = state.t(selection.type === "owner-setup" ? "ownerPinPh" : "staffPinEnterPh");
+    if (selection.type === "owner-setup") {
+      nameEl.textContent = state.t("ownerPinSetupPrompt");
+    } else if (selection.type === "owner") {
       nameEl.textContent = state.t("staffOwnerSelectedLabel");
     } else {
       const roleLabel = selection.staff.role === "manager" ? state.t("staffRoleManager") : state.t("staffRoleCashier");
@@ -250,48 +311,63 @@ export function staffPickerGoBack() {
     document.getElementById("staffPickerPinView").style.display = "none";
   }
 
+let pinFailCount = 0;
+let pinLockUntil = 0;
+
 export function submitStaffPickerPin() {
     if (!state.staffPickerPendingSelection) return;
     const entered = document.getElementById("staffPickerPinInput").value.trim();
     const errorEl = document.getElementById("staffPickerPinError");
+    const fail = (msg) => {
+      errorEl.textContent = msg;
+      errorEl.style.display = "block";
+    };
+
+    // İlk kurulum: sahip PIN'i belirle (PIN'siz tam yetki verilmez).
+    if (state.staffPickerPendingSelection.type === "owner-setup") {
+      if (!/^\d{4,6}$/.test(entered)) return fail(state.t("ownerPinInvalid"));
+      state.ownerPin = entered;
+      const ref = state.originalDocRef || state.docRef;
+      if (ref) ref.set({ ownerPin: entered }, { merge: true }).catch((e) => console.error("Sahip PIN'i kaydedilemedi", e));
+      grantOwnerAccess();
+      return;
+    }
+
+    // Deneme sınırı: 5 hatalı girişten sonra 30 sn bekletir.
+    const now = Date.now();
+    if (now < pinLockUntil) return fail(state.t("pinLocked").replace("{s}", Math.ceil((pinLockUntil - now) / 1000)));
+    const wrong = (msg) => {
+      pinFailCount++;
+      if (pinFailCount >= 5) {
+        pinFailCount = 0;
+        pinLockUntil = Date.now() + 30000;
+      }
+      fail(msg);
+    };
 
     if (state.staffPickerPendingSelection.type === "owner") {
-      if (state.ownerPin && entered !== state.ownerPin) {
-        errorEl.textContent = state.t("ownerPinWrong");
-        errorEl.style.display = "block";
-        return;
-      }
+      if (state.ownerPin && entered !== state.ownerPin) return wrong(state.t("ownerPinWrong"));
+      pinFailCount = 0;
       grantOwnerAccess();
       return;
     }
 
     const staff = state.staffPickerPendingSelection.staff;
-    if (entered !== staff.pin) {
-      errorEl.textContent = state.t("staffPinWrong");
-      errorEl.style.display = "block";
-      return;
-    }
+    if (entered !== staff.pin) return wrong(state.t("staffPinWrong"));
+    pinFailCount = 0;
     state.currentStaff = staff;
-    try {
-      sessionStorage.setItem("bakkal_current_staff_id", staff.id);
-    } catch (e) {}
+    saveIdentity(staff.id);
     document.getElementById("staffPickerScreen").style.display = "none";
     applyRoleRestrictionsUI();
   }
 
 export function enterAsOwner() {
-    if (state.ownerPin) {
-      openStaffPinView({ type: "owner" });
-      return;
-    }
-    grantOwnerAccess();
+    openStaffPinView({ type: state.ownerPin ? "owner" : "owner-setup" });
   }
 
 export function grantOwnerAccess() {
     state.currentStaff = null;
-    try {
-      sessionStorage.setItem("bakkal_current_staff_id", "__owner__");
-    } catch (e) {}
+    saveIdentity("__owner__");
     applyRoleRestrictionsUI();
   }
 
@@ -342,13 +418,15 @@ export function applyRoleRestrictionsUI() {
 export function updateSwitchUserButtonVisibility() {
     const btn = document.getElementById("switchUserBtn");
     if (!btn) return;
-    btn.style.display = state.staffMembers.length > 0 ? "inline-flex" : "none";
+    btn.style.display = state.staffMembers.length > 0 || (state.currentUser && state.ownerPin) ? "inline-flex" : "none";
   }
 
 export function switchUser() {
     state.currentStaff = null;
-    try {
-      sessionStorage.removeItem("bakkal_current_staff_id");
-    } catch (e) {}
-    showStaffPicker();
+    clearIdentity();
+    if (state.staffMembers.length) showStaffPicker();
+    else {
+      showPickerScreen();
+      openStaffPinView({ type: state.ownerPin ? "owner" : "owner-setup" });
+    }
   }
