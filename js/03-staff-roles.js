@@ -3,6 +3,7 @@ import { locale, save } from './01-firebase-core.js';
 import { escapeHtml, genId, showToast } from './02-utils.js';
 import { reapplySimpleModeIfSet } from './18-settings-backup.js';
 import { switchTab } from './20-navigation.js';
+import { enterOwnerMode, leaveOwnerMode, OWNER_TABS } from './40-owner-console.js';
 
 export function applyAccountTypeUI() {
     const isAdminUser = state.currentUser && state.currentUser.uid === state.ADMIN_UID;
@@ -10,6 +11,7 @@ export function applyAccountTypeUI() {
     const operationalTabs = ["tab-products", "tab-kasa", "tab-scan", "tab-sales", "tab-veresiye", "tab-orders", "tab-pricechanges"];
 
     // Yönetici (sen) her zaman her şeyi görür.
+    if (!(isPatron && !state.viewingBranchUid && !isAdminUser)) leaveOwnerMode();
     if (isAdminUser) {
       operationalTabs.forEach((tabId) => {
         const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
@@ -29,15 +31,11 @@ export function applyAccountTypeUI() {
       return;
     }
 
-    // Patron hesabı: sadece Ayarlar + Şubelerim görünür.
+    // Patron hesabı: yönetim paneli (yan menü, üst çubuk, genel bakış).
     if (isPatron) {
-      operationalTabs.forEach((tabId) => {
-        const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
-        if (btn) btn.style.display = "none";
-      });
-      const branchesBtn = document.getElementById("branchesNavBtn");
-      if (branchesBtn) branchesBtn.style.display = "flex";
-      switchTab("tab-branches");
+      enterOwnerMode();
+      const active = document.querySelector(".tab-panel.active");
+      if (!active || !OWNER_TABS.includes(active.id)) switchTab("tab-owner-overview");
       return;
     }
 

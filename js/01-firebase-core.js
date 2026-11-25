@@ -82,6 +82,9 @@ export function handleAuthChange(user) {
       try {
         sessionStorage.removeItem("bakkal_current_staff_id");
       } catch (e) {}
+      document.body.classList.remove("owner-mode", "owner-menu-open");
+      const ownerShell = document.getElementById("ownerShell");
+      if (ownerShell) ownerShell.style.display = "none";
       state.docRef = null;
       state.products = [];
       state.sales = [];
@@ -166,6 +169,8 @@ export function attachFirestoreListener() {
           state.bulkPriceEnabled = data.bulkPriceEnabled || false;
           state.receiptSettings = data.receiptSettings || { enabled: false, connection: "system", paper: 58, lang: "auto", baud: 9600, shopName: "", headerExtra: "", footer: "", autoPrint: false };
           state.chainShowFinance = data.chainShowFinance || false;
+          state.branchMeta = data.branchMeta || {};
+          state.transfers = data.transfers || [];
           state.creditControl = data.creditControl || { enabled: false, limit: 0, dueDays: 0, mode: "block" };
           state.lastBulkPrice = data.lastBulkPrice || null;
           state.businessLogo = data.businessLogo || "";

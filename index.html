@@ -40,6 +40,36 @@
     </div>
   </header>
 
+  <!-- İŞLETME SAHİBİ (PATRON) PANELİ: yan menü + üst çubuk -->
+  <div id="ownerShell" style="display:none;">
+    <aside id="ownerSidebar" class="owner-sidebar">
+      <div class="owner-brand"><i class="fa-solid fa-store" aria-hidden="true"></i> <span id="ownerBrandName">Bakkal</span></div>
+      <nav id="ownerNav" class="owner-nav"></nav>
+    </aside>
+    <div id="ownerScrim" class="owner-scrim"></div>
+    <div class="owner-topbar">
+      <button id="ownerMenuBtn" type="button" class="owner-icon-btn owner-menu-btn" aria-label="Menu"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
+      <p id="ownerBizName" class="owner-biz-name"></p>
+      <select id="ownerBranchFilter" class="owner-branch-filter" aria-label="Şube"></select>
+      <div class="owner-menu-wrap">
+        <button id="ownerBell" type="button" class="owner-icon-btn" aria-label="Bildirimler"><i class="fa-solid fa-bell" aria-hidden="true"></i><span id="ownerBellBadge" class="owner-badge" style="display:none;"></span></button>
+        <div id="ownerBellMenu" class="owner-dropdown" style="display:none;"></div>
+      </div>
+      <div class="owner-menu-wrap">
+        <button id="ownerProfileBtn" type="button" class="owner-icon-btn" aria-label="Profil"><i class="fa-solid fa-circle-user" aria-hidden="true"></i></button>
+        <div id="ownerProfileMenu" class="owner-dropdown" style="display:none;">
+          <p id="ownerProfileEmail" class="owner-profile-email"></p>
+          <div class="lang-switch owner-lang">
+            <button class="lang-btn" data-lang="tr">TR</button>
+            <button class="lang-btn" data-lang="en">EN</button>
+            <button class="lang-btn" data-lang="ar">AR</button>
+          </div>
+          <button id="ownerLogoutBtn" type="button" class="owner-dropdown-item"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> <span data-i18n="logoutTitle">Çıkış yap</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- GİRİŞ / KAYIT EKRANI (yalnızca bulut senkronizasyonu ayarlıysa gösterilir) -->
   <div id="authScreen" class="auth-screen" style="display:none;">
     <div class="auth-box">
@@ -128,6 +158,11 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <main id="app">
+    <div id="branchViewingBanner" class="branch-viewing-banner" style="display:none;">
+        <span id="branchViewingText"></span>
+        <button id="exitBranchViewBtn" class="btn btn-sm"><span data-i18n="branchExitView">Kendi hesabıma dön</span></button>
+      </div>
+
 
     <!-- ÖZET -->
     <section class="stats-grid">
@@ -1458,12 +1493,76 @@
     </section>
 
     <!-- SEKME: ŞUBELERİM (zincir marketler için) -->
-    <section id="tab-branches" class="tab-panel">
-      <div id="branchViewingBanner" class="branch-viewing-banner" style="display:none;">
-        <span id="branchViewingText"></span>
-        <button id="exitBranchViewBtn" class="btn btn-sm"><span data-i18n="branchExitView">Kendi hesabıma dön</span></button>
+    <section id="tab-owner-overview" class="tab-panel">
+      <div id="ownerStats" class="owner-stats"></div>
+
+      <div class="owner-section-head">
+        <p class="owner-section-title" data-i18n="ownerBranchesTitle">Şubeler</p>
+        <button type="button" class="owner-link" data-goto="tab-branches" data-i18n="ownerManageBranches">Şubeleri yönet →</button>
+      </div>
+      <div id="ownerBranchCards" class="owner-branch-grid"></div>
+      <p id="ownerNoBranches" class="empty-state" style="display:none;" data-i18n="chainNoBranches">Henüz şube yok.</p>
+
+      <div class="owner-two-col">
+        <div class="card owner-card">
+          <p class="owner-section-title" data-i18n="ownerStockChartTitle">Şube bazında stok durumu</p>
+          <div id="ownerStockChart"></div>
+        </div>
+        <div class="card owner-card">
+          <p class="owner-section-title" data-i18n="ownerPerfChartTitle">Şube performansı (bu ay satış)</p>
+          <div id="ownerPerfChart"></div>
+        </div>
       </div>
 
+      <div class="owner-two-col">
+        <div class="card owner-card">
+          <div class="owner-section-head"><p class="owner-section-title" data-i18n="ownerLowTitle">En çok azalan ürünler</p><button type="button" class="owner-link" data-goto="tab-owner-stock" data-i18n="ownerGoStock">Stok yönetimi →</button></div>
+          <div id="ownerLowList"></div>
+        </div>
+        <div class="card owner-card">
+          <p class="owner-section-title" data-i18n="ownerOutTitle">Tükenen ürünler</p>
+          <div id="ownerOutList"></div>
+        </div>
+      </div>
+
+      <div class="owner-two-col">
+        <div class="card owner-card">
+          <p class="owner-section-title" data-i18n="ownerPendingTransfersTitle">Bekleyen stok transferleri</p>
+          <div id="ownerPendingTransfers"></div>
+        </div>
+        <div class="card owner-card">
+          <p class="owner-section-title" data-i18n="ownerRecentTitle">Son işlemler</p>
+          <div id="ownerRecentOps"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-owner-products" class="tab-panel">
+      <div class="card">
+        <p class="card-title" data-i18n="catalogTitle">Ana Ürün Kataloğu</p>
+        <p class="card-subtitle" data-i18n="catalogSubtitle">Buraya eklediğin ürün adı/kategori/fiyatı TÜM şubelere gönderilir. Her şube kendi stok adedini ayrı tutar, buradan sadece fiyat/isim değişir.</p>
+        <div class="form-row">
+          <input id="catalogName" type="text" data-i18n-placeholder="catalogNamePh" placeholder="Ürün adı" />
+        </div>
+        <div class="form-row two-col">
+          <input id="catalogCategory" type="text" data-i18n-placeholder="catalogCategoryPh" placeholder="Kategori" />
+          <input id="catalogPrice" type="number" min="0" step="any" data-i18n-placeholder="catalogPricePh" placeholder="Satış fiyatı (₺)" />
+        </div>
+        <button id="catalogAddBtn" class="btn btn-block">
+          <i class="fa-solid fa-plus" aria-hidden="true"></i> <span data-i18n="catalogAddBtn">Kataloğa ekle ve tüm şubelere gönder</span>
+        </button>
+        <div id="catalogSyncing" class="bulk-scan-loading" style="display:none;">
+          <i class="fa-solid fa-spinner spin" aria-hidden="true"></i>
+          <span data-i18n="catalogSyncing">Şubelere gönderiliyor...</span>
+        </div>
+        <p class="card-subtitle" data-i18n="catalogListTitle" style="margin-top:14px;">Kataloğdaki ürünler</p>
+        <div id="catalogList" class="list"></div>
+        <p id="catalogEmptyState" class="empty-state" data-i18n="catalogEmptyState">Kataloğa henüz ürün eklenmedi.</p>
+      </div>
+
+    </section>
+
+    <section id="tab-owner-stock" class="tab-panel">
       <div class="card" id="chainDashCard">
         <p class="card-title" data-i18n="chainDashTitle">🏢 Merkez Genel Durum</p>
         <label class="checkbox-row"><input id="chainFinanceCheck" type="checkbox" /> <span data-i18n="chainShowFinance">Finansal verileri göster (maliyet, stok değeri, gider, kâr)</span></label>
@@ -1487,42 +1586,9 @@
         <div id="chainCompareTable" style="overflow-x:auto;"></div>
       </div>
 
-      <div class="card">
-        <p class="card-title" data-i18n="branchSummaryTitle">Tüm Şubeler Özeti</p>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <p class="stat-label" data-i18n="branchSummarySales">Bugün toplam satış</p>
-            <p class="stat-value" id="branchSummarySales">0,00 ₺</p>
-          </div>
-          <div class="stat-card">
-            <p class="stat-label" data-i18n="branchSummaryOrders">Kritik stok (tüm şubeler)</p>
-            <p class="stat-value" id="branchSummaryOrders">0</p>
-          </div>
-        </div>
-      </div>
+    </section>
 
-      <div class="card">
-        <p class="card-title" data-i18n="catalogTitle">Ana Ürün Kataloğu</p>
-        <p class="card-subtitle" data-i18n="catalogSubtitle">Buraya eklediğin ürün adı/kategori/fiyatı TÜM şubelere gönderilir. Her şube kendi stok adedini ayrı tutar, buradan sadece fiyat/isim değişir.</p>
-        <div class="form-row">
-          <input id="catalogName" type="text" data-i18n-placeholder="catalogNamePh" placeholder="Ürün adı" />
-        </div>
-        <div class="form-row two-col">
-          <input id="catalogCategory" type="text" data-i18n-placeholder="catalogCategoryPh" placeholder="Kategori" />
-          <input id="catalogPrice" type="number" min="0" step="any" data-i18n-placeholder="catalogPricePh" placeholder="Satış fiyatı (₺)" />
-        </div>
-        <button id="catalogAddBtn" class="btn btn-block">
-          <i class="fa-solid fa-plus" aria-hidden="true"></i> <span data-i18n="catalogAddBtn">Kataloğa ekle ve tüm şubelere gönder</span>
-        </button>
-        <div id="catalogSyncing" class="bulk-scan-loading" style="display:none;">
-          <i class="fa-solid fa-spinner spin" aria-hidden="true"></i>
-          <span data-i18n="catalogSyncing">Şubelere gönderiliyor...</span>
-        </div>
-        <p class="card-subtitle" data-i18n="catalogListTitle" style="margin-top:14px;">Kataloğdaki ürünler</p>
-        <div id="catalogList" class="list"></div>
-        <p id="catalogEmptyState" class="empty-state" data-i18n="catalogEmptyState">Kataloğa henüz ürün eklenmedi.</p>
-      </div>
-
+    <section id="tab-branches" class="tab-panel">
       <div class="card">
         <p class="card-title" data-i18n="branchAddTitle">Yeni şube ekle</p>
         <div class="form-row">

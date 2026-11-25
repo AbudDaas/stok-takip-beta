@@ -1,6 +1,7 @@
 import { state } from './00-state.js';
 import { renderBulkPriceSettings } from './36-bulk-price.js';
 import { renderCreditSettings, renderOverdueList } from './37-credit-control.js';
+import { markOwnerNav, OWNER_TABS } from './40-owner-console.js';
 import { renderReceiptSettings } from './38-receipt.js';
 import { escapeHtml, getStatus } from './02-utils.js';
 import { renderAuditLog, renderOwnerPinStatus, renderStaffList } from './03-staff-roles.js';
@@ -142,7 +143,8 @@ export function switchTab(tabId) {
     });
     if (tabId !== "tab-scan" && state.scanning) stopScan();
     if (tabId !== "tab-kasa" && state.scanningKasa) stopScanKasa();
-    if (tabId === "tab-branches" && !state.viewingBranchUid) {
+    markOwnerNav(tabId);
+    if (!state.viewingBranchUid && (tabId === "tab-branches" || OWNER_TABS.includes(tabId) && tabId !== "tab-settings")) {
       loadBranches();
       renderCatalogList();
     }

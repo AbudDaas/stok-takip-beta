@@ -3,6 +3,7 @@ import { attachFirestoreListener } from './01-firebase-core.js';
 import { escapeHtml, formatTL, isChainConfigured, mkProduct, showToast } from './02-utils.js';
 import { applyAccountTypeUI } from './03-staff-roles.js';
 import { switchTab } from './20-navigation.js';
+import { renderOwnerOverview } from './40-owner-console.js';
 import { renderChainDashboard } from './39-chain-dashboard.js';
 
 export function calcTodaySalesTotal(salesArr) {
@@ -36,6 +37,7 @@ export function loadBranches() {
         renderBranchList(branches);
         renderBranchSummary(branches);
         renderChainDashboard(branches);
+        renderOwnerOverview(branches);
       })
       .catch((e) => {
         console.error("Şube listesi okunamadı", e);
