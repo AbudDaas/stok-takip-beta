@@ -325,42 +325,20 @@ export function saveBranchEdit() {
 export function confirmDeleteBranch(uid, name) {
     if (!confirm(`${state.t("branchDeleteConfirm")} "${name}"?`)) return;
 
-    // Hesabı HEMEN kapatan işaret: şube kullanıcısı oturum açsa bile içerik yüklenmez,
-    // oturumu kapatılır. Veriler silinmez, sende kalır.
-    const markDisabled = () =>
-      state.db
-        .collection("isletmeler")
-        .doc(uid)
-        .set({ accountDisabled: true, disabledAt: new Date().toISOString(), chainOwnerUid: state.currentUser.uid, branchName: name }, { merge: true })
-        .then(() => true)
-        .catch((e) => {
-          console.error("Şube kapatma işareti yazılamadı", e);
-          return false;
-        });
-
-    (async () => {
-      const marked = await markDisabled();
-      let workerError = null;
-      try {
-        const idToken = await state.currentUser.getIdToken();
-        const r = await fetch(`${chainConfig.workerUrl}/delete-branch`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, targetUid: uid })
-        });
-        const data = await r.json().catch(() => ({}));
-        if (data.error) workerError = data.error;
-      } catch (e) {
-        console.error(e);
-        workerError = state.t("branchDeleteError");
-      }
-      // Worker belgeyi sildiyse işareti yeniden yaz (silinen hesap yeniden boş işletme açamasın).
-      const markedAgain = await markDisabled();
-      if (!marked && !markedAgain && workerError) {
-        showToast(workerError, "error");
-        return;
-      }
-      showToast(state.t(workerError ? "branchDeletePartial" : "branchDeleteSuccess"), workerError ? "info" : "success");
-      loadBranches();
-    })();
+    // Şube SİLİNMEZ, KAPATILIR: kayda "hesap kapatıldı" işareti konur. Veriler sende kalır;
+    // şube kullanıcısı giriş yapsa bile içerik yüklenmeden oturumu kapatılır. (Eskiden sunucudaki
+    // silme çağrısı kaydı yok ediyordu ve kullanıcı girince yeni boş bir işletme açılıyordu.)
+    const ref = state.db.collection("isletmeler").doc(uid);
+    ref
+      .set({ accountDisabled: true, disabledAt: new Date().toISOString(), chainOwnerUid: state.currentUser.uid, branchName: name }, { merge: true })
+      .then(() => ref.get({ source: "server" }))
+      .then((doc) => {
+        if (!doc.exists || doc.data().accountDisabled !== true) throw new Error("not_marked");
+        showToast(state.t("branchDeleteSuccess"), "success");
+        loadBranches();
+      })
+      .catch((e) => {
+        console.error("Şube kapatılamadı", e);
+        showToast(state.t("branchDeleteError"), "error");
+      });
   }
