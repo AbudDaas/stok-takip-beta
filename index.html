@@ -1562,6 +1562,32 @@
 
     </section>
 
+    <section id="tab-owner-assistant" class="tab-panel">
+      <div class="card owner-card">
+        <p class="owner-section-title" data-i18n="asstTitle">💡 Akıllı Ticaret ve Şube Asistanı</p>
+        <p class="card-subtitle" data-i18n="asstSubtitle">Şubelerin satış ve stok verisinden otomatik öneriler üretir. Tahminler geçmiş satış hızına dayanır.</p>
+        <div class="form-row two-col">
+          <label class="field-label" for="assistantHorizon"><span data-i18n="asstHorizonLabel">"Yakında biter" eşiği</span>
+            <select id="assistantHorizon"><option value="3">3</option><option value="7" selected>7</option><option value="14">14</option></select></label>
+          <label class="field-label" for="assistantCover"><span data-i18n="asstCoverLabel">"Fazla stok" eşiği (gün)</span>
+            <select id="assistantCover"><option value="30">30</option><option value="60" selected>60</option><option value="90">90</option></select></label>
+        </div>
+      </div>
+      <div class="card owner-card"><p class="owner-section-title" data-i18n="asstSummaryTitle">Bugün için öneriler</p><div id="assistantSummary"></div></div>
+      <div class="owner-two-col">
+        <div class="card owner-card"><p class="owner-section-title" data-i18n="asstFastTitle">Hızlı tükenenler (günlük satış hızı)</p><div id="assistantFast"></div></div>
+        <div class="card owner-card"><p class="owner-section-title" data-i18n="asstSoonTitle">Yakında bitmesi beklenenler</p><div id="assistantSoon"></div></div>
+      </div>
+      <div class="owner-two-col">
+        <div class="card owner-card"><p class="owner-section-title" data-i18n="asstOverTitle">Gereğinden fazla / ölü stok</p><div id="assistantOver"></div></div>
+        <div class="card owner-card"><p class="owner-section-title" data-i18n="asstTransferTitle">Transfer önerileri</p><div id="assistantTransfers"></div></div>
+      </div>
+      <div class="owner-two-col">
+        <div class="card owner-card"><p class="owner-section-title" data-i18n="asstSupplierTitle">Tedarikçi / maliyet karşılaştırma</p><p class="card-subtitle" data-i18n="asstSupplierNote">Aynı ürünü şubelerin hangi maliyetle aldığını karşılaştırır (ürüne tedarikçi ve maliyet girilmiş olmalı).</p><div id="assistantSupplier"></div></div>
+        <div class="card owner-card"><p class="owner-section-title" data-i18n="asstCostTitle">Maliyet değişiminin kâra etkisi</p><p class="card-subtitle" data-i18n="asstCostNote">Son 30 gün, önceki 30 güne göre (satış kayıtlarındaki alış maliyetinden).</p><div id="assistantCost"></div></div>
+      </div>
+    </section>
+
     <section id="tab-owner-stock" class="tab-panel">
       <div class="card" id="chainDashCard">
         <p class="card-title" data-i18n="chainDashTitle">🏢 Merkez Genel Durum</p>

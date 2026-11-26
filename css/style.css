@@ -1892,3 +1892,6 @@ html[dir="rtl"] .owner-dropdown{right:auto;left:0;}
   .owner-biz-name{display:none;}
 }
 body.owner-mode #app > .stats-grid{display:none;}
+.owner-card .owner-section-title{margin-bottom:10px;}
+.owner-card .card-subtitle{margin:0 0 10px;}
+.owner-card .form-row{margin-top:6px;}

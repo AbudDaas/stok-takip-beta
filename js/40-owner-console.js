@@ -15,6 +15,7 @@ import { logout } from './01-firebase-core.js';
 import { escapeHtml, formatMoney, showPrompt, showToast } from './02-utils.js';
 import { viewBranch } from './13-branches-chain.js';
 import { switchTab } from './20-navigation.js';
+import { renderAssistant } from './41-smart-assistant.js';
 import { chainTotals, criticalAlerts, moneyTotals, summarizeBranch } from './39-chain-dashboard.js';
 import { formatCashTotals } from './29-mixed-payment.js';
 
@@ -23,6 +24,7 @@ export const OWNER_NAV = [
   { tab: "tab-branches", icon: "fa-code-branch", key: "ownerNavBranches" },
   { tab: "tab-owner-products", icon: "fa-box-open", key: "ownerNavProducts" },
   { tab: "tab-owner-stock", icon: "fa-warehouse", key: "ownerNavStock" },
+  { tab: "tab-owner-assistant", icon: "fa-lightbulb", key: "ownerNavAssistant" },
   { tab: "tab-settings", icon: "fa-gear", key: "ownerNavSettings" }
 ];
 export const OWNER_TABS = OWNER_NAV.map((n) => n.tab);
@@ -175,6 +177,7 @@ export function initOwnerConsole() {
   el("ownerBranchFilter").addEventListener("change", () => {
     state.ownerBranchFilter = el("ownerBranchFilter").value;
     renderOwnerOverview(state.loadedBranches || []);
+    renderAssistant(state.loadedBranches || []);
   });
   document.addEventListener("click", (e) => {
     const go = e.target.closest("[data-goto]");
