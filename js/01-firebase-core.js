@@ -123,11 +123,42 @@ function logSnapshotDiff(snap, data) {
   } catch (e) {}
 }
 
+let _disabledHandled = false;
+
+/**
+ * Silinmiş/kapatılmış şube hesabı: oturumu kapatır, bu cihazdaki yerel kopyayı siler.
+ * Patron şubeyi silerken hesaba accountDisabled işareti koyar; işaret görülünce hesap açılmaz.
+ */
+function handleDisabledAccount() {
+  if (_disabledHandled) return;
+  _disabledHandled = true;
+  try {
+    if (state.firestoreUnsubscribe) state.firestoreUnsubscribe();
+    localStorage.removeItem(state.STORAGE_KEY);
+    sessionStorage.removeItem("bakkal_current_staff_id");
+  } catch (e) {}
+  state.products = [];
+  state.sales = [];
+  state.customers = [];
+  state.payments = [];
+  showToast(state.t("accountDisabledMsg"), "error");
+  state.auth.signOut().finally(() => {
+    setTimeout(() => {
+      _disabledHandled = false;
+    }, 3000);
+  });
+}
+
 export function attachFirestoreListener() {
     state.firestoreUnsubscribe = state.docRef.onSnapshot(
       (snap) => {
         if (state.suppressNextSnapshot) {
           state.suppressNextSnapshot = false;
+          return;
+        }
+        // Kapatılmış (silinmiş) şube hesabı: hiçbir veri yüklenmeden oturum kapatılır.
+        if (snap.exists && snap.data().accountDisabled === true && !state.viewingBranchUid) {
+          handleDisabledAccount();
           return;
         }
         if (snap.exists && snap.data().products) {
@@ -231,6 +262,10 @@ export function attachFirestoreListener() {
       },
       (err) => {
         console.error("Firestore hata", err);
+        if (err && err.code === "permission-denied" && !state.viewingBranchUid) {
+          handleDisabledAccount();
+          return;
+        }
         setSyncStatus("error");
       }
     );

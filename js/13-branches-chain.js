@@ -22,6 +22,7 @@ export function loadBranches() {
         const branches = [];
         snap.forEach((doc) => {
           const data = doc.data();
+          if (data.accountDisabled === true) return; // silinmiş şube listede görünmez (veri korunur)
           branches.push({
             uid: doc.id,
             branchName: data.branchName || doc.id,
@@ -324,26 +325,42 @@ export function saveBranchEdit() {
 export function confirmDeleteBranch(uid, name) {
     if (!confirm(`${state.t("branchDeleteConfirm")} "${name}"?`)) return;
 
-    state.currentUser
-      .getIdToken()
-      .then((idToken) =>
-        fetch(`${chainConfig.workerUrl}/delete-branch`, {
+    // Hesabı HEMEN kapatan işaret: şube kullanıcısı oturum açsa bile içerik yüklenmez,
+    // oturumu kapatılır. Veriler silinmez, sende kalır.
+    const markDisabled = () =>
+      state.db
+        .collection("isletmeler")
+        .doc(uid)
+        .set({ accountDisabled: true, disabledAt: new Date().toISOString(), chainOwnerUid: state.currentUser.uid, branchName: name }, { merge: true })
+        .then(() => true)
+        .catch((e) => {
+          console.error("Şube kapatma işareti yazılamadı", e);
+          return false;
+        });
+
+    (async () => {
+      const marked = await markDisabled();
+      let workerError = null;
+      try {
+        const idToken = await state.currentUser.getIdToken();
+        const r = await fetch(`${chainConfig.workerUrl}/delete-branch`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ idToken, targetUid: uid })
-        })
-      )
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.error) {
-          showToast(data.error, "error");
-          return;
-        }
-        showToast(state.t("branchDeleteSuccess"), "success");
-        loadBranches();
-      })
-      .catch((e) => {
+        });
+        const data = await r.json().catch(() => ({}));
+        if (data.error) workerError = data.error;
+      } catch (e) {
         console.error(e);
-        showToast(state.t("branchDeleteError"), "error");
-      });
+        workerError = state.t("branchDeleteError");
+      }
+      // Worker belgeyi sildiyse işareti yeniden yaz (silinen hesap yeniden boş işletme açamasın).
+      const markedAgain = await markDisabled();
+      if (!marked && !markedAgain && workerError) {
+        showToast(workerError, "error");
+        return;
+      }
+      showToast(state.t(workerError ? "branchDeletePartial" : "branchDeleteSuccess"), workerError ? "info" : "success");
+      loadBranches();
+    })();
   }
