@@ -11,6 +11,33 @@ export function toggleFiscalEnabled(checked) {
     }
   }
 
+function fiscalSecretRef() {
+    const base = state.originalDocRef || state.docRef;
+    return base ? base.collection("gizli").doc("fiscal") : null;
+  }
+
+// Anahtarı gizli alt belgeden yükler; eski ana-belge anahtarını oraya taşır ve ana belgeden siler.
+export async function ensureFiscalKey() {
+    const base = state.originalDocRef || state.docRef;
+    const ref = fiscalSecretRef();
+    if (!base || !ref || state.viewingBranchUid) return state.fiscalApiKey;
+    try {
+      if (state.fiscalKeyLegacy && state.fiscalApiKey) {
+        await ref.set({ apiKey: state.fiscalApiKey }, { merge: true });
+        await base.update({ fiscalApiKey: firebase.firestore.FieldValue.delete() });
+        state.fiscalKeyLegacy = false;
+        state._fiscalKeyFor = base.path;
+      } else if (!state.fiscalApiKey && state._fiscalKeyFor !== base.path) {
+        const doc = await ref.get();
+        state.fiscalApiKey = doc.exists ? doc.data().apiKey || "" : "";
+        state._fiscalKeyFor = base.path;
+      }
+    } catch (e) {
+      console.error("Mali kayıt anahtarı yüklenemedi", e);
+    }
+    return state.fiscalApiKey;
+  }
+
 export function saveFiscalSettings() {
     state.fiscalProvider = document.getElementById("fiscalProvider").value;
     state.fiscalApiKey = document.getElementById("fiscalApiKey").value.trim();
@@ -20,8 +47,15 @@ export function saveFiscalSettings() {
     const targetRef = state.originalDocRef || state.docRef;
     if (targetRef) {
       targetRef
-        .set({ fiscalProvider: state.fiscalProvider, fiscalApiKey: state.fiscalApiKey, fiscalEndpoint: state.fiscalEndpoint, fiscalVkn: state.fiscalVkn }, { merge: true })
+        .set({ fiscalProvider: state.fiscalProvider, fiscalEndpoint: state.fiscalEndpoint, fiscalVkn: state.fiscalVkn, fiscalApiKey: firebase.firestore.FieldValue.delete() }, { merge: true })
         .catch((e) => console.error("Mali kayıt ayarları kaydedilemedi", e));
+      fiscalSecretRef()
+        .set({ apiKey: state.fiscalApiKey }, { merge: true })
+        .then(() => {
+          state._fiscalKeyFor = targetRef.path;
+          state.fiscalKeyLegacy = false;
+        })
+        .catch((e) => console.error("Mali kayıt anahtarı kaydedilemedi", e));
     }
 
     const statusEl = document.getElementById("fiscalStatus");
@@ -43,14 +77,22 @@ export function renderFiscalSettings() {
     toggle.checked = state.fiscalEnabled;
     document.getElementById("fiscalConfigFields").style.display = state.fiscalEnabled ? "block" : "none";
     document.getElementById("fiscalProvider").value = state.fiscalProvider;
-    document.getElementById("fiscalApiKey").value = state.fiscalApiKey;
+    const keyInput = document.getElementById("fiscalApiKey");
+    keyInput.type = "password";
+    keyInput.autocomplete = "off";
+    keyInput.value = state.fiscalApiKey;
+    ensureFiscalKey().then((k) => {
+      if (document.activeElement !== keyInput) keyInput.value = k || "";
+    });
     document.getElementById("fiscalEndpoint").value = state.fiscalEndpoint;
     document.getElementById("fiscalVkn").value = state.fiscalVkn;
   }
 
-export function attemptSendToFiscalProvider(sale) {
-    if (!state.fiscalEnabled || !state.fiscalApiKey || !state.fiscalEndpoint) return;
+export async function attemptSendToFiscalProvider(sale) {
+    if (!state.fiscalEnabled || !state.fiscalEndpoint) return;
     if (!isChainConfigured() || !state.currentUser) return;
+    await ensureFiscalKey();
+    if (!state.fiscalApiKey) return;
 
     const invoicePayload = {
       vkn: state.fiscalVkn,

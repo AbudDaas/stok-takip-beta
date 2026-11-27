@@ -156,6 +156,15 @@ export function attachFirestoreListener() {
           state.suppressNextSnapshot = false;
           return;
         }
+        // Eski hesap ama işletme kaydı yok (sunucuda silinmiş): yeni boş işletme AÇMA, oturumu kapat.
+        // Yeni kayıt olanlar (1 saatten genç hesap) ve çevrimdışı önbellek okumaları muaftır.
+        if (!snap.exists && !snap.metadata.fromCache && !state.viewingBranchUid && state.currentUser && state.currentUser.uid !== state.ADMIN_UID) {
+          const created = new Date((state.currentUser.metadata && state.currentUser.metadata.creationTime) || Date.now()).getTime();
+          if (Date.now() - created > 3600000) {
+            handleDisabledAccount();
+            return;
+          }
+        }
         // Kapatılmış (silinmiş) şube hesabı: hiçbir veri yüklenmeden oturum kapatılır.
         if (snap.exists && snap.data().accountDisabled === true && !state.viewingBranchUid) {
           handleDisabledAccount();
@@ -174,7 +183,14 @@ export function attachFirestoreListener() {
           state.priceChangeLog = data.priceChangeLog || [];
           state.fiscalEnabled = data.fiscalEnabled || false;
           state.fiscalProvider = data.fiscalProvider || "foriba";
-          state.fiscalApiKey = data.fiscalApiKey || "";
+          // API anahtarı artık ana belgede değil `gizli/fiscal` alt belgesinde (bkz. 04-fiscal.js).
+          // Eski belgede hâlâ varsa geçiş için okunur ve taşınır.
+          {
+            const fRef = state.originalDocRef || state.docRef;
+            const keep = fRef && state._fiscalKeyFor === fRef.path ? state.fiscalApiKey : "";
+            state.fiscalApiKey = data.fiscalApiKey || keep || "";
+            state.fiscalKeyLegacy = !!data.fiscalApiKey;
+          }
           state.fiscalEndpoint = data.fiscalEndpoint || "";
           state.fiscalVkn = data.fiscalVkn || "";
           state.suppliers = data.suppliers || [];

@@ -4,6 +4,7 @@ import { escapeHtml, genId, showToast } from './02-utils.js';
 import { reapplySimpleModeIfSet } from './18-settings-backup.js';
 import { switchTab } from './20-navigation.js';
 import { enterOwnerMode, leaveOwnerMode, OWNER_TABS } from './40-owner-console.js';
+import { clearPinFailures, hashPin, isHashedPin, lockRemainingMs, registerPinFailure, verifyPin } from './42-pin-security.js';
 
 export function applyAccountTypeUI() {
     const isAdminUser = state.currentUser && state.currentUser.uid === state.ADMIN_UID;
@@ -91,16 +92,17 @@ export function renderAuditLog() {
       .join("");
   }
 
-export function saveOwnerPin() {
+export async function saveOwnerPin() {
     const value = document.getElementById("ownerPinInput").value.trim();
     if (!/^\d{4,6}$/.test(value)) {
       showToast(state.t("ownerPinInvalid"), "error");
       return;
     }
-    state.ownerPin = value;
+    const hashed = await hashPin(value);
+    state.ownerPin = hashed;
     const targetRef = state.originalDocRef || state.docRef;
     if (targetRef) {
-      targetRef.set({ ownerPin: value }, { merge: true }).catch((e) => console.error("Sahip PIN'i kaydedilemedi", e));
+      targetRef.set({ ownerPin: hashed }, { merge: true }).catch((e) => console.error("Sahip PIN'i kaydedilemedi", e));
     }
     document.getElementById("ownerPinInput").value = "";
     renderOwnerPinStatus();
@@ -150,7 +152,7 @@ export function renderStaffList() {
     });
   }
 
-export function addStaffMember() {
+export async function addStaffMember() {
     const name = document.getElementById("staffName").value.trim();
     const pin = document.getElementById("staffPin").value.trim();
     const role = document.getElementById("staffRole").value;
@@ -164,7 +166,8 @@ export function addStaffMember() {
       return;
     }
 
-    state.staffMembers.push({ id: genId(), name, pin, role });
+    const pinHash = await hashPin(pin);
+    state.staffMembers.push({ id: genId(), name, pinHash, role });
     save();
     renderStaffList();
     document.getElementById("staffName").value = "";
@@ -309,10 +312,30 @@ export function staffPickerGoBack() {
     document.getElementById("staffPickerPinView").style.display = "none";
   }
 
-let pinFailCount = 0;
-let pinLockUntil = 0;
+function pinScope() {
+    return state.currentUser ? state.currentUser.uid : "local";
+  }
 
-export function submitStaffPickerPin() {
+// Eski düz metin PIN'leri özete çevirir (yalnız sahip kimliğiyle, şube izlerken değil).
+export async function migrateLegacyPins() {
+    if (state.viewingBranchUid) return;
+    let changed = false;
+    if (state.ownerPin && !isHashedPin(state.ownerPin)) {
+      state.ownerPin = await hashPin(state.ownerPin);
+      const ref = state.originalDocRef || state.docRef;
+      if (ref) ref.set({ ownerPin: state.ownerPin }, { merge: true }).catch((e) => console.error("PIN güncellenemedi", e));
+    }
+    for (const s of state.staffMembers) {
+      if (s.pin) {
+        s.pinHash = await hashPin(s.pin);
+        delete s.pin;
+        changed = true;
+      }
+    }
+    if (changed) save();
+  }
+
+export async function submitStaffPickerPin() {
     if (!state.staffPickerPendingSelection) return;
     const entered = document.getElementById("staffPickerPinInput").value.trim();
     const errorEl = document.getElementById("staffPickerPinError");
@@ -324,35 +347,33 @@ export function submitStaffPickerPin() {
     // İlk kurulum: sahip PIN'i belirle (PIN'siz tam yetki verilmez).
     if (state.staffPickerPendingSelection.type === "owner-setup") {
       if (!/^\d{4,6}$/.test(entered)) return fail(state.t("ownerPinInvalid"));
-      state.ownerPin = entered;
+      state.ownerPin = await hashPin(entered);
       const ref = state.originalDocRef || state.docRef;
-      if (ref) ref.set({ ownerPin: entered }, { merge: true }).catch((e) => console.error("Sahip PIN'i kaydedilemedi", e));
+      if (ref) ref.set({ ownerPin: state.ownerPin }, { merge: true }).catch((e) => console.error("Sahip PIN'i kaydedilemedi", e));
       grantOwnerAccess();
       return;
     }
 
-    // Deneme sınırı: 5 hatalı girişten sonra 30 sn bekletir.
-    const now = Date.now();
-    if (now < pinLockUntil) return fail(state.t("pinLocked").replace("{s}", Math.ceil((pinLockUntil - now) / 1000)));
+    // Kalıcı deneme sınırı: 5 hatadan sonra bekleme, her 5 hatada ikiye katlanır.
+    const scope = pinScope();
+    const remaining = lockRemainingMs(scope);
+    if (remaining > 0) return fail(state.t("pinLocked").replace("{s}", Math.ceil(remaining / 1000)));
     const wrong = (msg) => {
-      pinFailCount++;
-      if (pinFailCount >= 5) {
-        pinFailCount = 0;
-        pinLockUntil = Date.now() + 30000;
-      }
-      fail(msg);
+      const delay = registerPinFailure(scope);
+      fail(delay ? state.t("pinLocked").replace("{s}", Math.ceil(delay / 1000)) : msg);
     };
 
     if (state.staffPickerPendingSelection.type === "owner") {
-      if (state.ownerPin && entered !== state.ownerPin) return wrong(state.t("ownerPinWrong"));
-      pinFailCount = 0;
+      if (state.ownerPin && !(await verifyPin(entered, state.ownerPin))) return wrong(state.t("ownerPinWrong"));
+      clearPinFailures(scope);
       grantOwnerAccess();
+      migrateLegacyPins().catch((e) => console.error("PIN geçişi başarısız", e));
       return;
     }
 
     const staff = state.staffPickerPendingSelection.staff;
-    if (entered !== staff.pin) return wrong(state.t("staffPinWrong"));
-    pinFailCount = 0;
+    if (!(await verifyPin(entered, staff.pinHash || staff.pin))) return wrong(state.t("staffPinWrong"));
+    clearPinFailures(scope);
     state.currentStaff = staff;
     saveIdentity(staff.id);
     document.getElementById("staffPickerScreen").style.display = "none";
