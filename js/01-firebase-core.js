@@ -6,6 +6,7 @@ import { loadAdminBusinessList, loadAdminFeedback } from './14-admin-panel.js';
 import { maybeCreateDailyBackup, reapplySimpleModeIfSet } from './18-settings-backup.js';
 import { checkOnboarding } from './19-onboarding.js';
 import { renderAll } from './20-navigation.js';
+import { checkDataSize, validateBackup } from './43-data-guard.js';
 
 export function locale() {
     const lang = window.i18n.getLang();
@@ -413,6 +414,7 @@ export function load() {
 
 export function save() {
     state._rev = (state._rev || 0) + 1;
+    checkDataSize();
     if (state.cloudEnabled) {
       if (!state.docRef) return;
       state.suppressNextSnapshot = true;
@@ -479,6 +481,12 @@ export function importLocalBackup() {
       parsed = JSON.parse(localStorage.getItem(state.STORAGE_KEY));
     } catch (e) {
       showToast(state.t("importParseError"), "error");
+      return;
+    }
+    const check = validateBackup(parsed);
+    if (!check.ok) {
+      console.error("Geçersiz yerel yedek", check.errors);
+      showToast(state.t("backupInvalid").replace("{n}", check.errors.length), "error");
       return;
     }
     const localProducts = (parsed && parsed.products) || [];

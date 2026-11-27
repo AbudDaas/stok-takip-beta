@@ -1,5 +1,6 @@
 import { state } from './00-state.js';
 import { applyBackupExtras, buildFullBackup } from './31-history-conversion.js';
+import { estimateDocBytes, validateBackup } from './43-data-guard.js';
 import { getBusinessId, uploadImage } from './32-image-storage.js';
 import { save } from './01-firebase-core.js';
 import { escapeHtml, isChainConfigured, showToast } from './02-utils.js';
@@ -142,7 +143,7 @@ export function renderDataSize() {
       returns: state.returns,
       expenses: state.expenses
     };
-    const sizeBytes = new Blob([JSON.stringify(dataObj)]).size;
+    const sizeBytes = Math.max(new Blob([JSON.stringify(dataObj)]).size, estimateDocBytes());
     const sizeKB = Math.round(sizeBytes / 1024);
     const limitKB = 1024;
     const percent = Math.min(100, Math.round((sizeKB / limitKB) * 100));
@@ -232,6 +233,12 @@ export function renderAutoBackups(backups) {
 export function restoreFromAutoBackup(backupId, backups) {
     const backup = backups.find((b) => b.id === backupId);
     if (!backup) return;
+    const check = validateBackup(backup);
+    if (!check.ok) {
+      console.error("Geçersiz yedek", check.errors);
+      showToast(state.t("backupInvalid").replace("{n}", check.errors.length), "error");
+      return;
+    }
     if (!confirm(`${state.t("autoBackupConfirmRestore")} (${backupId})`)) return;
 
     state.products = backup.products || [];
